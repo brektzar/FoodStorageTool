@@ -10,6 +10,7 @@ email:
       notify_expiring_soon: true
       notify_low_quantity: true
       notify_removed_items: true
+    recipient: mondo.of.sweden@gmail.com
     schedule:
       time: 02:45
       weekdays:

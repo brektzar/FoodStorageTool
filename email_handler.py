@@ -24,16 +24,12 @@ def load_email_config():
         st.error("Email configuration file (email_config.yml) not found!")
         return None
 
-def send_expiration_notification(items, recipient_email=None):
+def send_expiration_notification(items, recipient_email):
     """Send email notification about expiring items"""
     config = load_email_config()
     if not config:
         st.error("Kunde inte ladda email-konfiguration")
         return False
-
-    # Get recipient from secrets if not provided
-    if recipient_email is None:
-        recipient_email = st.secrets["email"]["recipient"]
 
     # Get notification preferences
     preferences = config['email']['notifications'].get('preferences', {
@@ -343,59 +339,6 @@ def send_immediate_notification(action, item_details, recipient_email):
         server.login(config['email']['sender'], config['email']['app_password'])
         
         # Send email
-        server.send_message(msg)
-        server.quit()
-        return True
-    except Exception as e:
-        st.error(f"Failed to send email: {str(e)}")
-        return False
-
-def send_user_management_notification(action, username, performed_by=None):
-    """Send notification about user management actions"""
-    config = load_email_config()
-    if not config:
-        st.error("Kunde inte ladda email-konfiguration")
-        return False
-
-    recipient_email = st.secrets["email"]["recipient"]
-
-    # Create message
-    msg = MIMEMultipart()
-    msg['From'] = config['email']['sender']
-    msg['To'] = recipient_email
-    msg['Subject'] = "Matförvaring - Användarhantering"
-
-    # Create action-specific message
-    if action == "created":
-        title = "Ny användare skapad"
-        details = f"En ny användare '{username}' har skapats"
-    elif action == "deleted":
-        title = "Användare borttagen"
-        details = f"Användaren '{username}' har tagits bort"
-    elif action == "password_changed":
-        title = "Lösenord ändrat"
-        details = f"Lösenordet har ändrats för användaren '{username}'"
-
-    if performed_by:
-        details += f" av {performed_by}"
-
-    # Create email body
-    body = f"""
-    <html>
-    <body>
-    <h2>Matförvaring - {title}</h2>
-    <p>{details}</p>
-    <p>Tidpunkt: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
-    <p>Med vänliga hälsningar,<br>Din Matförvaringsapp</p>
-    </body>
-    </html>
-    """
-
-    msg.attach(MIMEText(body, 'html'))
-
-    try:
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        server.login(config['email']['sender'], config['email']['app_password'])
         server.send_message(msg)
         server.quit()
         return True

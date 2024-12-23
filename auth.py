@@ -1,14 +1,35 @@
 """
-Authentication handling for the Food Storage App
+Authentication handling for Matförvaringsappen
 """
 
 import streamlit as st
 import hashlib
-from email_handler import send_user_management_notification
 
 def hash_password(password):
     """Hash password for secure comparison"""
-    return hashlib.sha256(password.encode()).hexdigest()
+    salt = "matforvaring_salt"  # Adding a constant salt
+    salted = (password + salt).encode('utf-8')
+    return hashlib.sha256(salted).hexdigest()
+
+def load_users():
+    """Load user configuration from secrets"""
+    try:
+        users = {}
+        # Get all users from secrets
+        for username, user_data in st.secrets.get("users", {}).items():
+            if isinstance(user_data, dict):
+                # New format where user_data is a dict with 'password' and 'role'
+                users[username] = user_data
+            else:
+                # Old format where user_data is just the password
+                users[username] = {
+                    'password': user_data,
+                    'role': 'admin' if username == 'admin' else 'user'
+                }
+        return users
+    except Exception as e:
+        st.error(f"Error loading users: {str(e)}")
+        return {}
 
 def is_admin():
     """Check if current user is admin"""
@@ -32,16 +53,15 @@ def login():
         
         if st.button("Logga in"):
             try:
-                # Get user data from secrets
-                users = st.secrets.users
+                users = load_users()
                 if username in users:
-                    stored_data = users[username]
                     input_hash = hash_password(password)
+                    stored_hash = users[username]['password']
                     
-                    if input_hash == stored_data['password']:
+                    if input_hash == stored_hash:
                         st.session_state.logged_in = True
                         st.session_state.username = username
-                        st.session_state.user_role = stored_data['role']
+                        st.session_state.user_role = users[username]['role']
                         st.rerun()
                     else:
                         st.error("Felaktigt lösenord")
@@ -61,84 +81,85 @@ def logout():
         st.rerun()
 
 def add_user(username, password, role='user'):
-    """Add a new user and show admin the credentials for secrets.toml"""
-    hashed_password = hash_password(password)
+    """Add new user to secrets.toml
     
-    # Show admin what to add to secrets
-    st.info("Please add the following to your Streamlit Cloud secrets:")
-    st.code(f"""[users.{username}]
+    Note: This function provides instructions for manual update
+    since Streamlit secrets are read-only at runtime.
+    """
+    try:
+        users = load_users()
+        if username in users:
+            return False, "Användarnamnet finns redan"
+        
+        hashed_password = hash_password(password)
+        
+        # Provide instructions for updating secrets.toml
+        instructions = f"""
+To add the new user, add these lines to .streamlit/secrets.toml:
+
+[users.{username}]
 password = "{hashed_password}"
 role = "{role}"
-""", language='toml')
-    
-    # Send notification about new user
-    send_user_management_notification(
-        "created", 
-        username, 
-        performed_by=st.session_state.get('username', 'Unknown')
-    )
-    return True, f"User {username} created successfully"
+"""
+        return True, instructions
 
-def check_password(username, password):
-    """Check if username/password combo is valid"""
-    try:
-        stored_data = st.secrets.users[username]
-        if stored_data['password'] == hash_password(password):
-            return True
-    except (KeyError, AttributeError):
-        pass
-    return False
+    except Exception as e:
+        return False, f"Fel vid skapande av användare: {str(e)}"
 
 def delete_user(username):
-    """Delete user"""
+    """Provide instructions for deleting a user from secrets.toml"""
     try:
+        users = load_users()
+        if username not in users:
+            return False, "Användaren finns inte"
+        
         if username == 'admin':
-            return False, "Cannot delete main admin"
+            return False, "Kan inte ta bort huvudadmin"
             
-        st.info("Please remove the following section from your Streamlit Cloud secrets:")
-        st.code(f"""[users.{username}]""", language='toml')
+        # Provide instructions for updating secrets.toml
+        instructions = f"""
+To remove the user, delete these lines from .streamlit/secrets.toml:
 
-        # Send notification about deleted user
-        send_user_management_notification(
-            "deleted", 
-            username, 
-            performed_by=st.session_state.get('username', 'Unknown')
-        )
-        return True, f"User {username} marked for deletion"
+[users.{username}]
+password = "..."
+role = "..."
+"""
+        return True, instructions
+
     except Exception as e:
-        return False, f"Error deleting user: {str(e)}"
+        return False, f"Fel vid borttagning av användare: {str(e)}"
 
 def list_users():
-    """Get list of all users and their roles"""
+    """Get list of all users (without passwords)
+    
+    Returns:
+        dict: User data (without passwords)
+    """
     try:
-        users = st.secrets.users
+        users = load_users()
+        # Return user data without passwords
         return {username: {'role': data['role']} for username, data in users.items()}
     except Exception:
         return {}
 
 def change_password(username, new_password):
-    """Show admin what to update in secrets for password change"""
+    """Provide instructions for changing a user's password in secrets.toml"""
     try:
-        # Verify user exists
-        if username not in st.secrets.users:
-            return False, "User does not exist"
+        users = load_users()
+        if username not in users:
+            return False, "Användaren finns inte"
 
-        # Hash the new password
         hashed_password = hash_password(new_password)
+        
+        # Provide instructions for updating secrets.toml
+        instructions = f"""
+To change the password, update this line in .streamlit/secrets.toml:
 
-        # Show admin what to update
-        st.info("Please update the password in your Streamlit Cloud secrets:")
-        st.code(f"""[users.{username}]
+[users.{username}]
 password = "{hashed_password}"
-role = "{st.secrets.users[username]['role']}"
-""", language='toml')
+role = "{users[username]['role']}"
+"""
+        return True, instructions
 
-        # Send notification about password change
-        send_user_management_notification(
-            "password_changed", 
-            username, 
-            performed_by=st.session_state.get('username', 'Unknown')
-        )
-        return True, f"Password change instructions shown for {username}"
     except Exception as e:
-        return False, f"Error changing password: {str(e)}"
+        return False, f"Fel vid ändring av lösenord: {str(e)}"
