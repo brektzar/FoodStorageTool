@@ -523,7 +523,7 @@ with st.sidebar:
                     st.error(
                         f"**{category_emoji} {item['item']}** är utgången sedan {item['days']} dagar!\n\n"
                         f"- Finns i: {item['unit']}\n"
-                        f"- Utg��ngsdatum: {item['exp_date']}"
+                        f"- Utgångsdatum: {item['exp_date']}"
                     )
             else:
                 st.info("Inga utgångna varor!")
@@ -572,386 +572,6 @@ if is_admin():
 
 # Create tabs
 selected_tab = st.tabs(tabs)
-
-# ===== FÖRVARINGSFLIK =====
-with selected_tab[0]:
-    st.title("📦 Förvarade Varor")
-    
-    # Check if there are any storage units
-    if not st.session_state.storage_units:
-        st.warning("Inga förvaringsenheter finns tillgängliga. Be en administratör att lägga till förvaringsenheter.")
-        st.info("En administratör kan lägga till förvaringsenheter via sidomenyn.")
-        st.stop()  # Stop execution here since there's nothing else to show
-    
-    # Väljare för förvaringsenhet
-    selected_unit = st.selectbox(
-        "Välj förvaringsenhet",
-        options=list(st.session_state.storage_units.keys()),
-        key="unit_selector_1"
-    )
-    
-    # Visa innehåll och kontroller för vald enhet
-    if selected_unit:
-        unit = st.session_state.storage_units[selected_unit]
-        
-        # Sektion för att lägga till nya varor
-        with st.expander("Lägg till ny vara"):
-            st.subheader(f"{selected_unit} ({strip_emoji(unit['type'])})")
-            
-            # Val mellan att skriva in ny vara eller välja från tidigare
-            input_method = st.radio(
-                "Välj inmatningsmetod",
-                ["Välj från tidigare varor", "Skriv in ny vara"],
-                horizontal=True,
-                key="input_method_1"
-            )
-
-            col1, col2, col3 = st.columns([2, 1, 1])
-            with col1:
-                if input_method == "Skriv in ny vara":
-                    new_item = st.text_input("Lägg till vara", key="new_item_text_1")
-                else:
-                    # Get unique items from history
-                    previous_items = set()
-                    for history_item in st.session_state.item_history:
-                        previous_items.add(history_item['item'])
-                    # Add current items from all storage units
-                    for storage_unit in st.session_state.storage_units.values():
-                        for item in storage_unit['contents'].keys():
-                            previous_items.add(item)
-
-                    if previous_items:
-                        new_item = st.selectbox(
-                            "Välj vara",
-                            options=sorted(list(previous_items)),
-                            key="previous_items_1"
-                        )
-                    else:
-                        st.info("Inga tidigare varor att välja från.")
-                        new_item = st.text_input("Lägg till vara", key="new_item_text_1")
-            with col2:
-                quantity = st.number_input("Antal", min_value=1, value=1, key="quantity_1")
-            with col3:
-                category = st.selectbox("Kategori", FOOD_CATEGORIES, key="category_selector_1")
-
-            exp_date = st.date_input(
-                "Utgångsdatum",
-                min_value=datetime.now().date(),
-                value=datetime.now().date() + timedelta(days=7),
-                key="exp_date_1"
-            )
-
-            if st.button("Lägg till vara", key="add_item_1"):
-                if new_item:
-                    unit['contents'][new_item] = {
-                        "quantity": quantity,
-                        "category": category,
-                        "date_added": datetime.now().strftime("%Y-%m-%d"),
-                        "expiration_date": exp_date.strftime("%Y-%m-%d")
-                    }
-                    add_to_history('added', new_item, category, quantity, selected_unit)
-                    save_data()
-                    st.success(f"Lade till {quantity} {new_item}")
-
-        # Visa innehåll
-        if unit['contents']:
-            st.write("### 📦 Innehåll")
-            for item, details in unit['contents'].items():
-                col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
-                with col1:
-                    st.write(f"{item} ({strip_emoji(details['category'])})")
-                with col2:
-                    st.write(f"📊 Antal: {details['quantity']}")
-                with col3:
-                    st.write(f"📅 Tillagd: {details['date_added']}")
-                with col4:
-                    st.write(f"⏳ Utgår: {details['expiration_date']}")
-                with col5:
-                    remove_key = f"remove_{item}"
-                    if st.button("🗑️ Ta bort", key=remove_key):
-                        st.session_state[f"show_quantity_selector_{item}"] = True
-
-                # Add quantity selector after each item's row
-                if st.session_state.get(f"show_quantity_selector_{item}", False):
-                    with st.expander(f"Hur många {item} vill du ta bort?", expanded=True):
-                        col1, col2 = st.columns([3, 1])
-                        with col1:
-                            remove_quantity = st.number_input(
-                                "Antal att ta bort",
-                                min_value=1,
-                                max_value=details['quantity'],
-                                value=1,
-                                key=f"remove_quantity_{item}"
-                            )
-                        with col2:
-                            if st.button("Bekräfta", key=f"confirm_remove_{item}"):
-                                if remove_quantity == details['quantity']:
-                                    # Remove entire item
-                                    add_to_history(
-                                        'removed', 
-                                        item, 
-                                        details['category'], 
-                                        remove_quantity, 
-                                        selected_unit,
-                                        expired=datetime.strptime(details['expiration_date'], "%Y-%m-%d").date() < datetime.now().date(),
-                                        exp_date=details['expiration_date']
-                                    )
-                                    del unit['contents'][item]
-                                else:
-                                    # Update quantity
-                                    add_to_history(
-                                        'removed', 
-                                        item, 
-                                        details['category'], 
-                                        remove_quantity, 
-                                        selected_unit,
-                                        expired=datetime.strptime(details['expiration_date'], "%Y-%m-%d").date() < datetime.now().date(),
-                                        exp_date=details['expiration_date']
-                                    )
-                                    unit['contents'][item]['quantity'] -= remove_quantity
-                                save_data()
-                                # Clear the session state to hide the quantity selector
-                                del st.session_state[f"show_quantity_selector_{item}"]
-                                st.rerun()
-                            if st.button("Avbryt", key=f"cancel_remove_{item}"):
-                                del st.session_state[f"show_quantity_selector_{item}"]
-                                st.rerun()
-        else:
-            st.info("📭 Inga varor tillagda än!")
-
-        # Ta bort förvaringsenhet
-        if is_admin():
-            if st.button("Ta bort förvaringsenhet", type="secondary"):
-                del st.session_state.storage_units[selected_unit]
-                save_data()
-                st.rerun()
-
-# ===== STATISTIKFLIK =====
-with selected_tab[1]:
-    st.title("📊 Statistik och Analys")
-    
-    if not st.session_state.item_history:
-        st.info("Ingen historik tillgänglig än. Börja med att lägga till och ta bort varor!")
-    else:
-        # Låt användaren välja tidsperiod för statistiken
-        time_period = st.selectbox(
-            "Välj tidsperiod",
-            ["Senaste veckan", "Senaste månaden", "Senaste året", "Allt"]
-        )
-        
-        # Generera statistik endast när användaren klickar på knappen
-        # Detta sparar resurser och gör appen snabbare
-        if st.button("Visa statistik", type="primary"):
-            with st.spinner("Genererar statistik..."):
-                # Hämta filtrerad data för vald tidsperiod
-                df, expired_df = generate_statistics(
-                    st.session_state.item_history,
-                    st.session_state.storage_units,
-                    time_period if time_period != "Allt" else None
-                )
-                
-                # ===== AKTIVITETSSTATISTIK =====
-                with st.expander("Aktivitetsstatistik"):
-                    st.write("### Aktivitetsstatistik")
-                    
-                    # Cirkeldiagram över mest aktiva kategorier
-                    st.subheader("Mest aktiva kategorier")
-                    category_activity = df['category'].value_counts()
-                    fig1 = px.pie(
-                        values=category_activity.values,
-                        names=category_activity.index,
-                        title="Aktivitet per kategori"
-                    )
-                    st.plotly_chart(fig1, use_container_width=True)
-
-                    # Stapeldiagram över mest tillagda varor
-                    st.subheader("Mest tillagda varor")
-                    added_items = df[df['action'] == 'added']['item'].value_counts().head(10)
-                    fig2 = px.bar(
-                        data_frame=pd.DataFrame({
-                            'Vara': added_items.index,
-                            'Antal': added_items.values
-                        }),
-                        x='Vara',
-                        y='Antal',
-                        title="Topp 10 tillagda varor"
-                    )
-                    st.plotly_chart(fig2, use_container_width=True)
-
-                    # Stapeldiagram över aktivitet över tid
-                    st.subheader("Aktivitet över tid")
-                    df['timestamp'] = pd.to_datetime(df['timestamp'])
-                    daily_activity = df.groupby(df['timestamp'].dt.date).size().reset_index()
-                    daily_activity.columns = ['Datum', 'Antal']
-
-                    fig3 = px.bar(
-                        daily_activity,
-                        x='Datum',
-                        y='Antal',
-                        title="Daglig aktivitet",
-                        labels={'Datum': 'Datum', 'Antal': 'Antal händelser'}
-                    )
-                    fig3.update_layout(
-                        bargap=0.2,
-                        xaxis_tickangle=-45,
-                    )
-                    st.plotly_chart(fig3, use_container_width=True)
-
-                    # Stapeldiagram över mest använda varor
-                    st.subheader("Mest använda varor")
-                    removed_items = df[
-                        (df['action'] == 'removed') & 
-                        (df['expired'] == False)
-                    ]['item'].value_counts().head(10)
-
-                    if not removed_items.empty:
-                        fig4 = px.bar(
-                            data_frame=pd.DataFrame({
-                                'Vara': removed_items.index,
-                                'Antal': removed_items.values
-                            }),
-                            x='Vara',
-                            y='Antal',
-                            title="Topp 10 använda varor (ej utgångna)"
-                        )
-                        st.plotly_chart(fig4, use_container_width=True)
-                    else:
-                        st.info("Ingen data om använda varor tillgänglig")
-                
-                # ===== ÖVRIG STATISTIK =====
-                with st.expander("Ytterligare statistik"):
-                    st.write("### Ytterligare statistik")
-                    col3, col4, col5 = st.columns(3)
-
-                    # Visa sammanfattande mätvärden
-                    with col3:
-                        total_items = len(df[df['action'] == 'added'])
-                        st.metric(
-                            "Totalt antal tillagda varor",  # Totalt antal varor som lagts till
-                            total_items
-                        )
-
-                    with col4:
-                        # Count only non-expired removals
-                        used_items = len(df[
-                            (df['action'] == 'removed') & 
-                            (df['expired'] == False)
-                        ])
-                        st.metric(
-                            "Använda varor (ej utgångna)",
-                            used_items
-                        )
-
-                    with col5:
-                        # Count expired removals separately
-                        expired_removals = len(df[
-                            (df['action'] == 'removed') & 
-                            (df['expired'] == True)
-                        ])
-                        st.metric(
-                            "Utgångna varor",
-                            expired_removals
-                        )
-
-                # ===== UTGÅNGSSTATISTIK =====
-                with st.expander("Utgångsstatistik"):
-                    st.markdown("---")
-                    st.header("📅 Statistik över utgångna varor")
-
-                    if not expired_df.empty:
-                        # Stapeldiagram över varor nära utgång
-                        st.subheader("Varor nära utgångsdatum")
-                        near_expiry = expired_df[expired_df['days_until_expiry'] > 0].sort_values('days_until_expiry').head(10)
-                        if not near_expiry.empty:
-                            fig5 = px.bar(
-                                data_frame=near_expiry,
-                                x='item',
-                                y='days_until_expiry',
-                                color='category',
-                                title="Dagar till utgång för varor",
-                                labels={'item': 'Vara', 'days_until_expiry': 'Dagar till utgång'}
-                            )
-                            st.plotly_chart(fig5, use_container_width=True)
-                        else:
-                            st.info("Inga varor närmar sig utgångsdatum")
-
-                        # Cirkeldiagram över utgångna varor per kategori
-                        expired_by_category = expired_df[expired_df['days_until_expiry'] < 0].groupby('category').size()
-                        if not expired_by_category.empty:
-                            st.subheader("Kategorier med utgångna varor")
-                            fig6 = px.pie(
-                                values=expired_by_category.values,
-                                names=expired_by_category.index,
-                                title="Fördelning av utgångna varor per kategori"
-                            )
-                            st.plotly_chart(fig6, use_container_width=True)
-
-                        # Stapeldiagram över genomsnittlig hållbarhet
-                        st.subheader("Genomsnittlig hållbarhet")
-                        avg_shelf_life = expired_df.groupby('category')['days_until_expiry'].mean().sort_values()
-                        if not avg_shelf_life.empty:
-                            fig7 = px.bar(
-                                x=avg_shelf_life.index,
-                                y=avg_shelf_life.values,
-                                title="Genomsnittlig hållbarhet per kategori (dagar)",
-                                labels={'x': 'Kategori', 'y': 'Dagar'}
-                            )
-                            st.plotly_chart(fig7, use_container_width=True)
-
-                        # Stapeldiagram över mest utgångna varor
-                        expired_history = df[
-                            (df['action'] == 'removed') &
-                            (df['expired'] == True)
-                        ]['item'].value_counts().head(10)
-
-                        if not expired_history.empty:
-                            st.subheader("Mest utgångna varor")
-                            fig8 = px.bar(
-                                data_frame=pd.DataFrame({
-                                    'Vara': expired_history.index,
-                                    'Antal': expired_history.values
-                                }),
-                                x='Vara',
-                                y='Antal',
-                                title="Topp 10 varor som ofta går ut"
-                            )
-                            st.plotly_chart(fig8, use_container_width=True)
-
-                        # Sammanfattning av utgångna varor
-                        st.subheader("Sammanfattning av utgångna varor")
-                        col8, col9, col10 = st.columns(3)
-
-                        with col8:
-                            currently_expired = len(expired_df[expired_df['days_until_expiry'] < 0])
-                            st.metric(
-                                "Antal utgångna varor just nu",
-                                currently_expired
-                            )
-
-                        with col9:
-                            near_expiry_count = len(expired_df[
-                                (expired_df['days_until_expiry'] >= 0) &
-                                (expired_df['days_until_expiry'] <= 7)])
-                            st.metric(
-                                "Varor som går ut inom 7 dagar",
-                                near_expiry_count
-                            )
-
-                        with col10:
-                            positive_days = expired_df[expired_df['days_until_expiry'] > 0]
-                            if not positive_days.empty:
-                                avg_days_to_expiry = int(positive_days['days_until_expiry'].mean())
-                                st.metric(
-                                    "Genomsnittlig tid till utgång",
-                                    f"{avg_days_to_expiry} dagar"
-                                )
-                            else:
-                                st.metric(
-                                    "Genomsnittlig tid till utgång",
-                                    "0 dagar"
-                                )
-                    else:
-                        st.info("Ingen utgångsdatumdata tillgänglig än.")
 
 # ===== ADMINFLIK =====
 if is_admin() and len(selected_tab) > 2:
@@ -1347,4 +967,383 @@ if is_admin() and len(selected_tab) > 2:
                         st.write("Debug info:")
                         st.write(f"Antal utgångna varor: {len(expired_items)}")
                         st.write(f"Antal varor som snart går ut: {len(expiring_warnings)}")
+
+# ===== FÖRVARINGSFLIK =====
+with selected_tab[0]:
+    st.title("📦 Förvarade Varor")
+    
+    # Check if there are any storage units
+    if not st.session_state.storage_units:
+        st.warning("Inga förvaringsenheter finns tillgängliga. Be en administratör att lägga till förvaringsenheter.")
+        st.stop()  # Stop execution here since there's nothing else to show
+    
+    # Väljare för förvaringsenhet
+    selected_unit = st.selectbox(
+        "Välj förvaringsenhet",
+        options=list(st.session_state.storage_units.keys()),
+        key="unit_selector_1"
+    )
+    
+    # Visa innehåll och kontroller för vald enhet
+    if selected_unit:
+        unit = st.session_state.storage_units[selected_unit]
+        
+        # Sektion för att lägga till nya varor
+        with st.expander("Lägg till ny vara"):
+            st.subheader(f"{selected_unit} ({strip_emoji(unit['type'])})")
+            
+            # Val mellan att skriva in ny vara eller välja från tidigare
+            input_method = st.radio(
+                "Välj inmatningsmetod",
+                ["Välj från tidigare varor", "Skriv in ny vara"],
+                horizontal=True,
+                key="input_method_1"
+            )
+
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col1:
+                if input_method == "Skriv in ny vara":
+                    new_item = st.text_input("Lägg till vara", key="new_item_text_1")
+                else:
+                    # Get unique items from history
+                    previous_items = set()
+                    for history_item in st.session_state.item_history:
+                        previous_items.add(history_item['item'])
+                    # Add current items from all storage units
+                    for storage_unit in st.session_state.storage_units.values():
+                        for item in storage_unit['contents'].keys():
+                            previous_items.add(item)
+
+                    if previous_items:
+                        new_item = st.selectbox(
+                            "Välj vara",
+                            options=sorted(list(previous_items)),
+                            key="previous_items_1"
+                        )
+                    else:
+                        st.info("Inga tidigare varor att välja från.")
+                        new_item = st.text_input("Lägg till vara", key="new_item_text_1")
+            with col2:
+                quantity = st.number_input("Antal", min_value=1, value=1, key="quantity_1")
+            with col3:
+                category = st.selectbox("Kategori", FOOD_CATEGORIES, key="category_selector_1")
+
+            exp_date = st.date_input(
+                "Utgångsdatum",
+                min_value=datetime.now().date(),
+                value=datetime.now().date() + timedelta(days=7),
+                key="exp_date_1"
+            )
+
+            if st.button("Lägg till vara", key="add_item_1"):
+                if new_item:
+                    unit['contents'][new_item] = {
+                        "quantity": quantity,
+                        "category": category,
+                        "date_added": datetime.now().strftime("%Y-%m-%d"),
+                        "expiration_date": exp_date.strftime("%Y-%m-%d")
+                    }
+                    add_to_history('added', new_item, category, quantity, selected_unit)
+                    save_data()
+                    st.success(f"Lade till {quantity} {new_item}")
+
+        # Visa innehåll
+        if unit['contents']:
+            st.write("### 📦 Innehåll")
+            for item, details in unit['contents'].items():
+                col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
+                with col1:
+                    st.write(f"{item} ({strip_emoji(details['category'])})")
+                with col2:
+                    st.write(f"📊 Antal: {details['quantity']}")
+                with col3:
+                    st.write(f"📅 Tillagd: {details['date_added']}")
+                with col4:
+                    st.write(f"⏳ Utgår: {details['expiration_date']}")
+                with col5:
+                    remove_key = f"remove_{item}"
+                    if st.button("🗑️ Ta bort", key=remove_key):
+                        st.session_state[f"show_quantity_selector_{item}"] = True
+
+                # Add quantity selector after each item's row
+                if st.session_state.get(f"show_quantity_selector_{item}", False):
+                    with st.expander(f"Hur många {item} vill du ta bort?", expanded=True):
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            remove_quantity = st.number_input(
+                                "Antal att ta bort",
+                                min_value=1,
+                                max_value=details['quantity'],
+                                value=1,
+                                key=f"remove_quantity_{item}"
+                            )
+                        with col2:
+                            if st.button("Bekräfta", key=f"confirm_remove_{item}"):
+                                if remove_quantity == details['quantity']:
+                                    # Remove entire item
+                                    add_to_history(
+                                        'removed', 
+                                        item, 
+                                        details['category'], 
+                                        remove_quantity, 
+                                        selected_unit,
+                                        expired=datetime.strptime(details['expiration_date'], "%Y-%m-%d").date() < datetime.now().date(),
+                                        exp_date=details['expiration_date']
+                                    )
+                                    del unit['contents'][item]
+                                else:
+                                    # Update quantity
+                                    add_to_history(
+                                        'removed', 
+                                        item, 
+                                        details['category'], 
+                                        remove_quantity, 
+                                        selected_unit,
+                                        expired=datetime.strptime(details['expiration_date'], "%Y-%m-%d").date() < datetime.now().date(),
+                                        exp_date=details['expiration_date']
+                                    )
+                                    unit['contents'][item]['quantity'] -= remove_quantity
+                                save_data()
+                                # Clear the session state to hide the quantity selector
+                                del st.session_state[f"show_quantity_selector_{item}"]
+                                st.rerun()
+                            if st.button("Avbryt", key=f"cancel_remove_{item}"):
+                                del st.session_state[f"show_quantity_selector_{item}"]
+                                st.rerun()
+        else:
+            st.info("📭 Inga varor tillagda än!")
+
+        # Ta bort förvaringsenhet
+        if is_admin():
+            if st.button("Ta bort förvaringsenhet", type="secondary"):
+                del st.session_state.storage_units[selected_unit]
+                save_data()
+                st.rerun()
+
+# ===== STATISTIKFLIK =====
+with selected_tab[1]:
+    st.title("📊 Statistik och Analys")
+    
+    if not st.session_state.item_history:
+        st.info("Ingen historik tillgänglig än. Börja med att lägga till och ta bort varor!")
+    else:
+        # Låt användaren välja tidsperiod för statistiken
+        time_period = st.selectbox(
+            "Välj tidsperiod",
+            ["Senaste veckan", "Senaste månaden", "Senaste året", "Allt"]
+        )
+        
+        # Generera statistik endast när användaren klickar på knappen
+        # Detta sparar resurser och gör appen snabbare
+        if st.button("Visa statistik", type="primary"):
+            with st.spinner("Genererar statistik..."):
+                # Hämta filtrerad data för vald tidsperiod
+                df, expired_df = generate_statistics(
+                    st.session_state.item_history,
+                    st.session_state.storage_units,
+                    time_period if time_period != "Allt" else None
+                )
+                
+                # ===== AKTIVITETSSTATISTIK =====
+                with st.expander("Aktivitetsstatistik"):
+                    st.write("### Aktivitetsstatistik")
+                    
+                    # Cirkeldiagram över mest aktiva kategorier
+                    st.subheader("Mest aktiva kategorier")
+                    category_activity = df['category'].value_counts()
+                    fig1 = px.pie(
+                        values=category_activity.values,
+                        names=category_activity.index,
+                        title="Aktivitet per kategori"
+                    )
+                    st.plotly_chart(fig1, use_container_width=True)
+
+                    # Stapeldiagram över mest tillagda varor
+                    st.subheader("Mest tillagda varor")
+                    added_items = df[df['action'] == 'added']['item'].value_counts().head(10)
+                    fig2 = px.bar(
+                        data_frame=pd.DataFrame({
+                            'Vara': added_items.index,
+                            'Antal': added_items.values
+                        }),
+                        x='Vara',
+                        y='Antal',
+                        title="Topp 10 tillagda varor"
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
+
+                    # Stapeldiagram över aktivitet över tid
+                    st.subheader("Aktivitet över tid")
+                    df['timestamp'] = pd.to_datetime(df['timestamp'])
+                    daily_activity = df.groupby(df['timestamp'].dt.date).size().reset_index()
+                    daily_activity.columns = ['Datum', 'Antal']
+
+                    fig3 = px.bar(
+                        daily_activity,
+                        x='Datum',
+                        y='Antal',
+                        title="Daglig aktivitet",
+                        labels={'Datum': 'Datum', 'Antal': 'Antal händelser'}
+                    )
+                    fig3.update_layout(
+                        bargap=0.2,
+                        xaxis_tickangle=-45,
+                    )
+                    st.plotly_chart(fig3, use_container_width=True)
+
+                    # Stapeldiagram över mest använda varor
+                    st.subheader("Mest använda varor")
+                    removed_items = df[
+                        (df['action'] == 'removed') & 
+                        (df['expired'] == False)
+                    ]['item'].value_counts().head(10)
+
+                    if not removed_items.empty:
+                        fig4 = px.bar(
+                            data_frame=pd.DataFrame({
+                                'Vara': removed_items.index,
+                                'Antal': removed_items.values
+                            }),
+                            x='Vara',
+                            y='Antal',
+                            title="Topp 10 använda varor (ej utgångna)"
+                        )
+                        st.plotly_chart(fig4, use_container_width=True)
+                    else:
+                        st.info("Ingen data om använda varor tillgänglig")
+                
+                # ===== ÖVRIG STATISTIK =====
+                with st.expander("Ytterligare statistik"):
+                    st.write("### Ytterligare statistik")
+                    col3, col4, col5 = st.columns(3)
+
+                    # Visa sammanfattande mätvärden
+                    with col3:
+                        total_items = len(df[df['action'] == 'added'])
+                        st.metric(
+                            "Totalt antal tillagda varor",  # Totalt antal varor som lagts till
+                            total_items
+                        )
+
+                    with col4:
+                        # Count only non-expired removals
+                        used_items = len(df[
+                            (df['action'] == 'removed') & 
+                            (df['expired'] == False)
+                        ])
+                        st.metric(
+                            "Använda varor (ej utgångna)",
+                            used_items
+                        )
+
+                    with col5:
+                        # Count expired removals separately
+                        expired_removals = len(df[
+                            (df['action'] == 'removed') & 
+                            (df['expired'] == True)
+                        ])
+                        st.metric(
+                            "Utgångna varor",
+                            expired_removals
+                        )
+
+                # ===== UTGÅNGSSTATISTIK =====
+                with st.expander("Utgångsstatistik"):
+                    st.markdown("---")
+                    st.header("📅 Statistik över utgångna varor")
+
+                    if not expired_df.empty:
+                        # Stapeldiagram över varor nära utgång
+                        st.subheader("Varor nära utgångsdatum")
+                        near_expiry = expired_df[expired_df['days_until_expiry'] > 0].sort_values('days_until_expiry').head(10)
+                        if not near_expiry.empty:
+                            fig5 = px.bar(
+                                data_frame=near_expiry,
+                                x='item',
+                                y='days_until_expiry',
+                                color='category',
+                                title="Dagar till utgång för varor",
+                                labels={'item': 'Vara', 'days_until_expiry': 'Dagar till utgång'}
+                            )
+                            st.plotly_chart(fig5, use_container_width=True)
+                        else:
+                            st.info("Inga varor närmar sig utgångsdatum")
+
+                        # Cirkeldiagram över utgångna varor per kategori
+                        expired_by_category = expired_df[expired_df['days_until_expiry'] < 0].groupby('category').size()
+                        if not expired_by_category.empty:
+                            st.subheader("Kategorier med utgångna varor")
+                            fig6 = px.pie(
+                                values=expired_by_category.values,
+                                names=expired_by_category.index,
+                                title="Fördelning av utgångna varor per kategori"
+                            )
+                            st.plotly_chart(fig6, use_container_width=True)
+
+                        # Stapeldiagram över genomsnittlig hållbarhet
+                        st.subheader("Genomsnittlig hållbarhet")
+                        avg_shelf_life = expired_df.groupby('category')['days_until_expiry'].mean().sort_values()
+                        if not avg_shelf_life.empty:
+                            fig7 = px.bar(
+                                x=avg_shelf_life.index,
+                                y=avg_shelf_life.values,
+                                title="Genomsnittlig hållbarhet per kategori (dagar)",
+                                labels={'x': 'Kategori', 'y': 'Dagar'}
+                            )
+                            st.plotly_chart(fig7, use_container_width=True)
+
+                        # Stapeldiagram över mest utgångna varor
+                        expired_history = df[
+                            (df['action'] == 'removed') &
+                            (df['expired'] == True)
+                        ]['item'].value_counts().head(10)
+
+                        if not expired_history.empty:
+                            st.subheader("Mest utgångna varor")
+                            fig8 = px.bar(
+                                data_frame=pd.DataFrame({
+                                    'Vara': expired_history.index,
+                                    'Antal': expired_history.values
+                                }),
+                                x='Vara',
+                                y='Antal',
+                                title="Topp 10 varor som ofta går ut"
+                            )
+                            st.plotly_chart(fig8, use_container_width=True)
+
+                        # Sammanfattning av utgångna varor
+                        st.subheader("Sammanfattning av utgångna varor")
+                        col8, col9, col10 = st.columns(3)
+
+                        with col8:
+                            currently_expired = len(expired_df[expired_df['days_until_expiry'] < 0])
+                            st.metric(
+                                "Antal utgångna varor just nu",
+                                currently_expired
+                            )
+
+                        with col9:
+                            near_expiry_count = len(expired_df[
+                                (expired_df['days_until_expiry'] >= 0) &
+                                (expired_df['days_until_expiry'] <= 7)])
+                            st.metric(
+                                "Varor som går ut inom 7 dagar",
+                                near_expiry_count
+                            )
+
+                        with col10:
+                            positive_days = expired_df[expired_df['days_until_expiry'] > 0]
+                            if not positive_days.empty:
+                                avg_days_to_expiry = int(positive_days['days_until_expiry'].mean())
+                                st.metric(
+                                    "Genomsnittlig tid till utgång",
+                                    f"{avg_days_to_expiry} dagar"
+                                )
+                            else:
+                                st.metric(
+                                    "Genomsnittlig tid till utgång",
+                                    "0 dagar"
+                                )
+                    else:
+                        st.info("Ingen utgångsdatumdata tillgänglig än.")
 
