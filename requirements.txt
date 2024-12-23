@@ -3,3 +3,4 @@ extra-streamlit-components
 PyYAML
 plotly
 pandas
+pymongo

@@ -80,6 +80,9 @@ import time
 from auth import login, logout, is_admin, is_logged_in, save_users, add_user, delete_user, list_users, change_password
 from email_handler import send_expiration_notification, schedule_daily_notification, load_email_config, get_email_schedule_info, get_next_scheduled_time, format_weekdays, send_immediate_notification
 import yaml
+from database import (save_storage_data, load_storage_data, 
+                     save_history_data, load_history_data,
+                     save_reminders_data, load_reminders_data)
 
 # Konfigurera pandas för att hantera framtida varningar
 # Detta förhindrar varningsmeddelanden om datatypskonvertering
@@ -200,55 +203,35 @@ def add_to_history(action, item_name, category, quantity, storage_unit, expired=
 
 
 def save_data():
-    """Spara all data till JSON-filer
-    
-    Sparar tre olika typer av data:
-    1. storage_data.json - Information om förvaringsenheter och deras innehåll
-    2. reminders_data.json - Påminnelser om utgångsdatum
-    3. history_data.json - Historik över alla händelser
-    
-    Använder:
-    - UTF-8 kodning för att hantera svenska tecken
-    - indent=4 för att göra filerna läsbara
-    - ensure_ascii=False för att spara emojis korrekt
-    """
-    with open('storage_data.json', 'w', encoding='utf-8') as f:
-        json.dump(st.session_state.storage_units, f, indent=4, ensure_ascii=False)
-    with open('reminders_data.json', 'w', encoding='utf-8') as f:
-        json.dump(st.session_state.expiration_reminders, f, indent=4, ensure_ascii=False)
-    with open('history_data.json', 'w', encoding='utf-8') as f:
-        json.dump(st.session_state.item_history, f, indent=4, ensure_ascii=False)
+    """Save all data to MongoDB"""
+    save_storage_data(st.session_state.storage_units)
+    save_history_data(st.session_state.item_history)
+    save_reminders_data(st.session_state.expiration_reminders)
 
 
 def load_data():
-    """Ladda all data från JSON-filer"""
+    """Load all data from MongoDB"""
     try:
-        if os.path.exists('storage_data.json'):
-            with open('storage_data.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                if data:  # Kontrollera om JSON inte är tom
-                    st.session_state.storage_units = data
-                else:
-                    st.session_state.storage_units = {}
+        storage_data = load_storage_data()
+        if storage_data:
+            st.session_state.storage_units = storage_data
+        else:
+            st.session_state.storage_units = {}
 
-        if os.path.exists('reminders_data.json'):
-            with open('reminders_data.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                if data:  # Kontrollera om JSON inte är tom
-                    st.session_state.expiration_reminders = data
-                else:
-                    st.session_state.expiration_reminders = {}
+        history_data = load_history_data()
+        if history_data:
+            st.session_state.item_history = history_data
+        else:
+            st.session_state.item_history = []
 
-        if os.path.exists('history_data.json'):
-            with open('history_data.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                if data:
-                    st.session_state.item_history = data
-                else:
-                    st.session_state.item_history = []
-    except json.JSONDecodeError:
-        # Hantera korrupta JSON-filer
-        st.error("Fel vid inläsning av data. Datafilerna kan vara korrupta eller tomma.")
+        reminders_data = load_reminders_data()
+        if reminders_data:
+            st.session_state.expiration_reminders = reminders_data
+        else:
+            st.session_state.expiration_reminders = {}
+
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
         st.session_state.storage_units = {}
         st.session_state.expiration_reminders = {}
         st.session_state.item_history = []
@@ -700,7 +683,7 @@ if is_admin() and len(selected_tab) > 2:
             )
 
             # Move checkbox before the button
-            confirm_delete = st.checkbox("Jag är säker på att jag vill ta bort denna användare", key="confirm_delete_user")
+            confirm_delete = st.checkbox("Jag är säker på att jag vill ta bort denna anv��ndare", key="confirm_delete_user")
 
             if st.button("Ta bort användare"):
                 if user_to_delete:
