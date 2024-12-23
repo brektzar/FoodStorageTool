@@ -299,7 +299,7 @@ def populate_example_data():
         "Pasta": "🍝 Spannmål & Pasta",  # Torr pasta
         "Ris": "🍝 Spannmål & Pasta",  # Basmat
         "Juice": "🥤 Drycker",  # Färskpressad
-        "Läsk": "🥤 Drycker",  # Lång hållbarhet
+        "Läsk": "��� Drycker",  # Lång hållbarhet
         "Ketchup": "🧂 Kryddor & Såser",  # Öppnad flaska
         "Senap": "🧂 Kryddor & Såser",  # Kryddsäs
         "Glass": "🧊 Frysta varor",  # Dessert
@@ -458,8 +458,14 @@ def check_auth():
     """
     if not is_logged_in():
         login()
-        st.stop()  # Stoppa körningen här om inte inloggad
-
+        st.stop()
+    else:
+        # Add logout button in sidebar only once
+        with st.sidebar:
+            if st.button("Logga ut", key="sidebar_logout_button"):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.rerun()
 
 # At the top of main.py, after imports
 
@@ -468,10 +474,8 @@ if 'mongodb_initialized' not in st.session_state:
     init_connection()
     st.session_state.mongodb_initialized = True
 
-# Single authentication check
-if not is_logged_in():
-    login()
-    st.stop()
+# Single authentication check that includes the logout button
+check_auth()
 
 # Only load data after confirming user is logged in
 if 'storage_units' not in st.session_state:
