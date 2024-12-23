@@ -115,3 +115,30 @@ def list_users():
         return {username: {'role': data['role']} for username, data in users.items()}
     except Exception:
         return {}
+
+def change_password(username, new_password):
+    """Show admin what to update in secrets for password change"""
+    try:
+        # Verify user exists
+        if username not in st.secrets.users:
+            return False, "User does not exist"
+
+        # Hash the new password
+        hashed_password = hash_password(new_password)
+
+        # Show admin what to update
+        st.info("Please update the password in your Streamlit Cloud secrets:")
+        st.code(f"""[users.{username}]
+password = "{hashed_password}"
+role = "{st.secrets.users[username]['role']}"
+""", language='toml')
+
+        # Send notification about password change
+        send_user_management_notification(
+            "password_changed", 
+            username, 
+            performed_by=st.session_state.get('username', 'Unknown')
+        )
+        return True, f"Password change instructions shown for {username}"
+    except Exception as e:
+        return False, f"Error changing password: {str(e)}"
