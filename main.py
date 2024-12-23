@@ -445,9 +445,6 @@ else:
 if 'storage_units' not in st.session_state:
     load_data()
 
-# Kontrollera autentisering först
-check_auth()
-
 # Visa utloggningsknapp i sidofältet
 with st.sidebar:
     if st.button("Logga ut", key="main_logout_button"):
