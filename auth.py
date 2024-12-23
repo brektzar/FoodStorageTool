@@ -4,6 +4,12 @@ Autentiseringshantering för Matförvaringsappen
 
 import streamlit as st
 import hashlib
+from datetime import datetime, timedelta
+import extra_streamlit_components as stx  # You'll need to install this package
+
+def get_manager():
+    """Get cookie manager instance"""
+    return stx.CookieManager()
 
 def load_users():
     """Load user configuration from secrets"""
@@ -48,7 +54,25 @@ def is_logged_in():
 
 # Hantera inloggning
 def login():
-    """Handle user login"""
+    """Handle user login with cookie persistence"""
+    cookie_manager = get_manager()
+    
+    # Check if there's a valid login cookie
+    login_cookie = cookie_manager.get('login_status')
+    if login_cookie:
+        try:
+            username, expiry = login_cookie.split('|')
+            if datetime.now() < datetime.fromisoformat(expiry):
+                # Cookie is valid, set session state
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                users = load_users()
+                st.session_state.user_role = users[username]['role']
+                return True
+        except (ValueError, KeyError):
+            # Invalid cookie format or expired
+            cookie_manager.delete('login_status')
+    
     if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
 
@@ -56,6 +80,7 @@ def login():
         st.header("🔐 Logga in")
         username = st.text_input("Användarnamn")
         password = st.text_input("Lösenord", type="password")
+        remember_me = st.checkbox("Håll mig inloggad i 30 dagar")
         
         if st.button("Logga in"):
             try:
@@ -64,18 +89,17 @@ def login():
                     input_hash = hash_password(password)
                     stored_hash = users[username]['password']
                     
-                    # Debug prints
-                    print("=== Debug Info ===")
-                    print(f"Username: {username}")
-                    print(f"Input password: {password}")
-                    print(f"Input hash: {input_hash}")
-                    print(f"Stored hash: {stored_hash}")
-                    print("=================")
-                    
                     if input_hash == stored_hash:
                         st.session_state.logged_in = True
                         st.session_state.username = username
                         st.session_state.user_role = users[username]['role']
+                        
+                        # Set login cookie if remember me is checked
+                        if remember_me:
+                            expiry = datetime.now() + timedelta(days=30)
+                            cookie_value = f"{username}|{expiry.isoformat()}"
+                            cookie_manager.set('login_status', cookie_value, expires_at=expiry)
+                        
                         st.rerun()
                     else:
                         st.error("Felaktigt lösenord")
@@ -88,11 +112,18 @@ def login():
 
 # Logga ut användaren
 def logout():
+    """Handle logout and clear cookies"""
+    cookie_manager = get_manager()
+    
     if st.sidebar.button("Logga ut"):
+        # Clear session state
         for key in ['logged_in', 'username', 'user_role']:
             if key in st.session_state:
                 del st.session_state[key]
-        st.rerun() 
+        
+        # Clear login cookie
+        cookie_manager.delete('login_status')
+        st.rerun()
 
 def add_user(username, password, role='user'):
     """Lägg till ny användare"""
