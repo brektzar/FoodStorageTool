@@ -207,6 +207,12 @@ def save_data():
     save_storage_data(st.session_state.storage_units)
     save_history_data(st.session_state.item_history)
     save_reminders_data(st.session_state.expiration_reminders)
+    
+    # Clear expired items cache
+    if 'expired_items' in st.session_state:
+        del st.session_state.expired_items
+    if 'expiring_warnings' in st.session_state:
+        del st.session_state.expiring_warnings
 
 
 def load_data():
@@ -239,40 +245,48 @@ def load_data():
 
 def check_expiring_items():
     """Kontrollera varor som närmar sig utgångsdatum och utgångna varor"""
+    # Clear any cached results
+    if 'expired_items' in st.session_state:
+        del st.session_state.expired_items
+    if 'expiring_warnings' in st.session_state:
+        del st.session_state.expiring_warnings
+        
     expiration_warnings = []  # Lista för varor som snart går ut
     expired_items = []        # Lista för varor som redan har gått ut
     current_date = datetime.now().date()
 
-    # Gå igenom alla förvaringsenheter och deras innehåll
-    for storage_name, storage_unit in st.session_state.storage_units.items():
-        for item_name, item_details in storage_unit['contents'].items():
-            if 'expiration_date' in item_details:
-                try:
-                    expiration_date = datetime.strptime(item_details['expiration_date'], "%Y-%m-%d").date()
-                    days_remaining = (expiration_date - current_date).days
+    # Only check if there are storage units
+    if st.session_state.storage_units:
+        # Gå igenom alla förvaringsenheter och deras innehåll
+        for storage_name, storage_unit in st.session_state.storage_units.items():
+            for item_name, item_details in storage_unit['contents'].items():
+                if 'expiration_date' in item_details:
+                    try:
+                        expiration_date = datetime.strptime(item_details['expiration_date'], "%Y-%m-%d").date()
+                        days_remaining = (expiration_date - current_date).days
 
-                    if days_remaining < 0:  # Varan har gått ut
-                        expired_items.append({
-                            'item': item_name,
-                            'unit': storage_name,
-                            'days': abs(days_remaining),
-                            'exp_date': expiration_date.strftime("%Y-%m-%d"),
-                            'category': item_details['category']
-                        })
-                    elif days_remaining <= 7:  # Varan går ut inom en vecka
-                        reminder_key = f"{storage_name}_{item_name}"
-                        if reminder_key not in st.session_state.expiration_reminders:
-                            expiration_warnings.append({
+                        if days_remaining < 0:  # Varan har gått ut
+                            expired_items.append({
                                 'item': item_name,
                                 'unit': storage_name,
-                                'days': days_remaining,
+                                'days': abs(days_remaining),
                                 'exp_date': expiration_date.strftime("%Y-%m-%d"),
-                                'key': reminder_key,
                                 'category': item_details['category']
                             })
-                except ValueError:
-                    st.error(f"Ogiltigt datumformat för {item_name} i {storage_name}")
-                    continue
+                        elif days_remaining <= 7:  # Varan går ut inom en vecka
+                            reminder_key = f"{storage_name}_{item_name}"
+                            if reminder_key not in st.session_state.expiration_reminders:
+                                expiration_warnings.append({
+                                    'item': item_name,
+                                    'unit': storage_name,
+                                    'days': days_remaining,
+                                    'exp_date': expiration_date.strftime("%Y-%m-%d"),
+                                    'key': reminder_key,
+                                    'category': item_details['category']
+                                })
+                    except ValueError:
+                        st.error(f"Ogiltigt datumformat för {item_name} i {storage_name}")
+                        continue
 
     return expired_items, expiration_warnings
 
@@ -1099,7 +1113,16 @@ with selected_tab[0]:
         # Ta bort förvaringsenhet
         if is_admin():
             if st.button("Ta bort förvaringsenhet", type="secondary"):
+                # Clear the storage unit
                 del st.session_state.storage_units[selected_unit]
+                
+                # Clear any expiration reminders for this unit
+                st.session_state.expiration_reminders = {
+                    k: v for k, v in st.session_state.expiration_reminders.items()
+                    if not k.startswith(f"{selected_unit}_")
+                }
+                
+                # Save all changes
                 save_data()
                 st.session_state.clear_cache = True  # Set flag to clear cache
                 st.rerun()  # Force page reload
