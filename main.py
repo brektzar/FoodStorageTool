@@ -1013,14 +1013,15 @@ if is_admin() and len(selected_tab) > 2:
         
         # Användarhantering
         with st.expander("👥 Användarhantering"):
-        
+            st.warning("⚠️ Detta kan bara ske om man hostar lokalt, hostas det på Streamlit så kan vi inte ändra secrets genom kod utan det måste ske manuellt.")
+            
             # Visa befintliga användare
             users = list_users()
             if users:
                 st.write("### Befintliga användare")
                 for username, data in users.items():
                     st.write(f"- {username} ({data['role']})")
-
+            
             # Lägg till ny användare
             st.subheader("Lägg till ny användare")
             new_username = st.text_input("Användarnamn", key="new_user_name")
@@ -1041,7 +1042,7 @@ if is_admin() and len(selected_tab) > 2:
                 else:
                     st.error("Både användarnamn och lösenord krävs")
             
-            # In the admin panel, under user management
+            # Ändra lösenord
             st.subheader("Ändra lösenord")
             user_to_change = st.selectbox(
                 "Välj användare",
@@ -1090,280 +1091,280 @@ if is_admin() and len(selected_tab) > 2:
 
             st.markdown("---")
 
-        # Email notifications section
-        with st.expander("📧 Email Notifications"):
-            # Show current email settings
-            config = load_email_config()
-            if config:
-                col1, col2 = st.columns(2)
-                with col1:
-                    # Get recipient from secrets
-                    current_recipient = st.secrets["email"]["recipient"]
-                    st.success(f"Email-notifieringar är aktiva för: {current_recipient}")
-                    
-                    # Always show last sent info
-                    last_sent, next_send = get_email_schedule_info()
-                    schedule = config['email']['notifications'].get('schedule', {
-                        'weekdays': list(range(7)),
-                        'time': "08:00"
-                    })
-                    
-                    if last_sent:
-                        current_time = datetime.now()
-                        days_ago = (current_time - last_sent).days
-                        
-                        if days_ago == 0:
-                            if last_sent.date() == current_time.date():
-                                sent_text = f"idag kl {last_sent.strftime('%H:%M')}"
-                            else:
-                                sent_text = f"igår kl {last_sent.strftime('%H:%M')}"
-                        else:
-                            sent_text = f"för {days_ago} dagar sedan (kl {last_sent.strftime('%H:%M')})"
-                        
-                        st.info(f"Senaste email skickades {sent_text}")
-                        
-                        if next_send:
-                            days_until = (next_send.date() - current_time.date()).days
-                            if days_until == 0:
-                                next_text = f"idag kl {next_send.strftime('%H:%M')}"
-                            elif days_until == 1:
-                                next_text = f"imorgon kl {next_send.strftime('%H:%M')}"
-                            else:
-                                next_text = f"på {next_send.strftime('%A').lower()} kl {next_send.strftime('%H:%M')}"
-                            
-                            st.info(f"Nästa email skickas {next_text}")
-                            st.info(f"Schemalagt att skickas {format_weekdays(schedule['weekdays'])} kl {schedule['time']}")
+# ===== EMAIL NOTIFICATIONS =====
+with st.expander("📧 Email Notifications"):
+    # Show current email settings
+    config = load_email_config()
+    if config:
+        col1, col2 = st.columns(2)
+        with col1:
+            # Get recipient from secrets
+            current_recipient = st.secrets["email"]["recipient"]
+            st.success(f"Email-notifieringar är aktiva för: {current_recipient}")
+            
+            # Always show last sent info
+            last_sent, next_send = get_email_schedule_info()
+            schedule = config['email']['notifications'].get('schedule', {
+                'weekdays': list(range(7)),
+                'time': "08:00"
+            })
+            
+            if last_sent:
+                current_time = datetime.now()
+                days_ago = (current_time - last_sent).days
+                
+                if days_ago == 0:
+                    if last_sent.date() == current_time.date():
+                        sent_text = f"idag kl {last_sent.strftime('%H:%M')}"
                     else:
-                        st.info("Inget email har skickats än")
-                        st.info("Nästa email skickas vid nästa kontroll")
-
-                with col2:
-                    # Button to reset last sent date
-                    if st.button("Återställ senaste skickad"):
-                        config['email']['notifications']['last_sent'] = None
-                        with open('email_config.yml', 'w', encoding='utf-8') as file:
-                            yaml.dump(config, file)
-                        st.success("Återställt! Nästa kontroll kommer skicka email.")
-                        st.rerun()
-
-                    # Test button that ignores the daily limit
-                    if st.button("Skicka test-email"):
-                        expired_items, expiring_warnings = check_expiring_items()
-                        if expired_items or expiring_warnings:
-                            all_items = expired_items + expiring_warnings
-                            # Create a temporary copy of the config for testing
-                            test_config = config.copy()
-                            test_config['email']['notifications']['last_sent'] = None
-                            with open('email_config.yml', 'w', encoding='utf-8') as file:
-                                yaml.dump(test_config, file)
-
-                            if send_expiration_notification(all_items, config['email']['notifications']['recipient']):
-                                st.success("Test-email skickat!")
-
-                            # Restore the original last_sent date
-                            config['email']['notifications']['last_sent'] = last_sent
-                            with open('email_config.yml', 'w', encoding='utf-8') as file:
-                                yaml.dump(config, file)
-                        else:
-                            st.info("Inga varor att notifiera om")
-
-                # Email setup
-                st.subheader("Email-inställningar")
-                email_recipient = st.text_input(
-                    "Email för notifieringar", 
-                    value=current_recipient,
-                    key="email_notifications"
-                )
-
-                # If email recipient is changed, update secrets
-                if email_recipient != current_recipient:
-                    try:
-                        secrets_path = '.streamlit/secrets.toml'
-                        with open(secrets_path, 'r') as f:
-                            secrets_content = f.readlines()
-                        
-                        new_secrets = []
-                        for line in secrets_content:
-                            if 'recipient = ' in line:
-                                new_secrets.append(f'recipient = "{email_recipient}"\n')
-                            else:
-                                new_secrets.append(line)
-                        
-                        with open(secrets_path, 'w') as f:
-                            f.writelines(new_secrets)
-                        st.success("Email-adress uppdaterad!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Kunde inte uppdatera email-adress: {str(e)}")
-
-                # Vilka ändringar att notifiera om
-                # Checkboxes for different happenings in the app that would warrant a notification,
-                # to be chosen by the admin.
-
-                # Add weekday selection
-                weekday_options = {
-                    "Alla dagar": list(range(7)),
-                    "Vardagar": list(range(5)),
-                    "Helger": [5, 6],
-                    "Anpassat": "custom"
-                }
-                selected_schedule = st.selectbox(
-                    "Skicka email på",
-                    options=list(weekday_options.keys()),
-                    key="weekday_schedule"
-                )
-
-                if selected_schedule == "Anpassat":
-                    weekdays = []
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.checkbox("Måndag"): weekdays.append(0)
-                        if st.checkbox("Tisdag"): weekdays.append(1)
-                        if st.checkbox("Onsdag"): weekdays.append(2)
-                        if st.checkbox("Torsdag"): weekdays.append(3)
-                    with col2:
-                        if st.checkbox("Fredag"): weekdays.append(4)
-                        if st.checkbox("Lördag"): weekdays.append(5)
-                        if st.checkbox("Söndag"): weekdays.append(6)
+                        sent_text = f"igår kl {last_sent.strftime('%H:%M')}"
                 else:
-                    weekdays = weekday_options[selected_schedule]
-
-                # Add time selection
-                time_str = st.time_input(
-                    "Skicka klockan",
-                    value=datetime.strptime("08:00", "%H:%M"),
-                    key="email_time"
-                ).strftime("%H:%M")
-
-                # Add after time selection in the email notifications section
-                st.subheader("Notifieringsinställningar")
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    notify_expired = st.checkbox(
-                        "Utgångna varor", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_expired', True),
-                        help="Skicka notifieringar om varor som har gått ut"
-                    )
-                    
-                    notify_expiring_soon = st.checkbox(
-                        "Varor som snart går ut", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_expiring_soon', True),
-                        help="Skicka notifieringar om varor som snart går ut"
-                    )
-                    
-                    notify_low_quantity = st.checkbox(
-                        "Lågt antal", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_low_quantity', False),
-                        help="Skicka varning när antalet av en vara är lågt"
-                    )
-
-                with col2:
-                    notify_removed_items = st.checkbox(
-                        "Borttagna varor", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_removed_items', False),
-                        help="Skicka notifieringar när varor tas bort"
-                    )
-                    
-                    notify_added_items = st.checkbox(
-                        "Tillagda varor", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_added_items', False),
-                        help="Skicka notifieringar när nya varor läggs till"
-                    )
-
-                # Additional settings that appear based on checkboxes
-                if notify_expiring_soon:
-                    expiring_soon_days = st.number_input(
-                        "Antal dagar innan utgång för varning",
-                        min_value=1,
-                        max_value=30,
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('expiring_soon_days', 7),
-                        help="Skicka varning när vara går ut inom detta antal dagar"
-                    )
-                else:
-                    expiring_soon_days = 7
-
-                if notify_low_quantity:
-                    low_quantity_threshold = st.number_input(
-                        "Gräns för lågt antal",
-                        min_value=1,
-                        max_value=10,
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('low_quantity_threshold', 2),
-                        help="Skicka varning när antalet är lägre än detta"
-                    )
-                else:
-                    low_quantity_threshold = 2
-
-                # Update the preferences when activating notifications
-                notification_preferences = {
-                    'notify_expired': notify_expired,
-                    'notify_expiring_soon': notify_expiring_soon,
-                    'notify_low_quantity': notify_low_quantity,
-                    'notify_removed_items': notify_removed_items,
-                    'notify_added_items': notify_added_items,
-                    'expiring_soon_days': expiring_soon_days,
-                    'low_quantity_threshold': low_quantity_threshold
-                }
-
-                # Add a save settings button
-                if st.button("Spara inställningar"):
-                    if config and config['email']['notifications'].get('recipient'):
-                        # Update only the preferences in the existing config
-                        config['email']['notifications']['preferences'] = notification_preferences
-                        try:
-                            with open('email_config.yml', 'w', encoding='utf-8') as file:
-                                yaml.dump(config, file)
-                            st.success("Inställningar sparade!")
-                        except Exception as e:
-                            st.error(f"Kunde inte spara inställningar: {str(e)}")
+                    sent_text = f"för {days_ago} dagar sedan (kl {last_sent.strftime('%H:%M')})"
+                
+                st.info(f"Senaste email skickades {sent_text}")
+                
+                if next_send:
+                    days_until = (next_send.date() - current_time.date()).days
+                    if days_until == 0:
+                        next_text = f"idag kl {next_send.strftime('%H:%M')}"
+                    elif days_until == 1:
+                        next_text = f"imorgon kl {next_send.strftime('%H:%M')}"
                     else:
-                        st.error("Email-notifieringar måste vara aktiverade först")
+                        next_text = f"på {next_send.strftime('%A').lower()} kl {next_send.strftime('%H:%M')}"
+                    
+                    st.info(f"Nästa email skickas {next_text}")
+                    st.info(f"Schemalagt att skickas {format_weekdays(schedule['weekdays'])} kl {schedule['time']}")
+            else:
+                st.info("Inget email har skickats än")
+                st.info("Nästa email skickas vid nästa kontroll")
 
-                # Existing activation button
-                if st.button("Aktivera email-notifieringar"):
-                    if email_recipient:
-                        if schedule_daily_notification(email_recipient, weekdays, time_str, notification_preferences):
-                            st.success("Email-notifieringar aktiverade!")
-                            # Send first notification immediately
-                            expired_items, expiring_warnings = check_expiring_items()
-                            if expired_items or expiring_warnings:
-                                all_items = expired_items + expiring_warnings
-                                if send_expiration_notification(all_items, email_recipient):
-                                    st.success("Första notifieringen skickad!")
-                        else:
-                            st.error("Kunde inte aktivera email-notifieringar")
+        with col2:
+            # Button to reset last sent date
+            if st.button("Återställ senaste skickad"):
+                config['email']['notifications']['last_sent'] = None
+                with open('email_config.yml', 'w', encoding='utf-8') as file:
+                    yaml.dump(config, file)
+                st.success("Återställt! Nästa kontroll kommer skicka email.")
+                st.rerun()
+
+            # Test button that ignores the daily limit
+            if st.button("Skicka test-email"):
+                expired_items, expiring_warnings = check_expiring_items()
+                if expired_items or expiring_warnings:
+                    all_items = expired_items + expiring_warnings
+                    # Create a temporary copy of the config for testing
+                    test_config = config.copy()
+                    test_config['email']['notifications']['last_sent'] = None
+                    with open('email_config.yml', 'w', encoding='utf-8') as file:
+                        yaml.dump(test_config, file)
+
+                    if send_expiration_notification(all_items, config['email']['notifications']['recipient']):
+                        st.success("Test-email skickat!")
+
+                    # Restore the original last_sent date
+                    config['email']['notifications']['last_sent'] = last_sent
+                    with open('email_config.yml', 'w', encoding='utf-8') as file:
+                        yaml.dump(config, file)
+                else:
+                    st.info("Inga varor att notifiera om")
+
+        # Email setup
+        st.subheader("Email-inställningar")
+        email_recipient = st.text_input(
+            "Email för notifieringar", 
+            value=current_recipient,
+            key="email_notifications"
+        )
+
+        # If email recipient is changed, update secrets
+        if email_recipient != current_recipient:
+            try:
+                secrets_path = '.streamlit/secrets.toml'
+                with open(secrets_path, 'r') as f:
+                    secrets_content = f.readlines()
+                
+                new_secrets = []
+                for line in secrets_content:
+                    if 'recipient = ' in line:
+                        new_secrets.append(f'recipient = "{email_recipient}"\n')
                     else:
-                        st.error("Ange en email-adress")
+                        new_secrets.append(line)
+                
+                with open(secrets_path, 'w') as f:
+                    f.writelines(new_secrets)
+                st.success("Email-adress uppdaterad!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Kunde inte uppdatera email-adress: {str(e)}")
 
-                # Add button to manually send notification
-                if st.button("Skicka notifiering nu"):
+        # Vilka ändringar att notifiera om
+        # Checkboxes for different happenings in the app that would warrant a notification,
+        # to be chosen by the admin.
+
+        # Add weekday selection
+        weekday_options = {
+            "Alla dagar": list(range(7)),
+            "Vardagar": list(range(5)),
+            "Helger": [5, 6],
+            "Anpassat": "custom"
+        }
+        selected_schedule = st.selectbox(
+            "Skicka email på",
+            options=list(weekday_options.keys()),
+            key="weekday_schedule"
+        )
+
+        if selected_schedule == "Anpassat":
+            weekdays = []
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.checkbox("Måndag"): weekdays.append(0)
+                if st.checkbox("Tisdag"): weekdays.append(1)
+                if st.checkbox("Onsdag"): weekdays.append(2)
+                if st.checkbox("Torsdag"): weekdays.append(3)
+            with col2:
+                if st.checkbox("Fredag"): weekdays.append(4)
+                if st.checkbox("Lördag"): weekdays.append(5)
+                if st.checkbox("Söndag"): weekdays.append(6)
+        else:
+            weekdays = weekday_options[selected_schedule]
+
+        # Add time selection
+        time_str = st.time_input(
+            "Skicka klockan",
+            value=datetime.strptime("08:00", "%H:%M"),
+            key="email_time"
+        ).strftime("%H:%M")
+
+        # Add after time selection in the email notifications section
+        st.subheader("Notifieringsinställningar")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            notify_expired = st.checkbox(
+                "Utgångna varor", 
+                value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_expired', True),
+                help="Skicka notifieringar om varor som har gått ut"
+            )
+            
+            notify_expiring_soon = st.checkbox(
+                "Varor som snart går ut", 
+                value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_expiring_soon', True),
+                help="Skicka notifieringar om varor som snart går ut"
+            )
+            
+            notify_low_quantity = st.checkbox(
+                "Lågt antal", 
+                value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_low_quantity', False),
+                help="Skicka varning när antalet av en vara är lågt"
+            )
+
+        with col2:
+            notify_removed_items = st.checkbox(
+                "Borttagna varor", 
+                value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_removed_items', False),
+                help="Skicka notifieringar när varor tas bort"
+            )
+            
+            notify_added_items = st.checkbox(
+                "Tillagda varor", 
+                value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_added_items', False),
+                help="Skicka notifieringar när nya varor läggs till"
+            )
+
+        # Additional settings that appear based on checkboxes
+        if notify_expiring_soon:
+            expiring_soon_days = st.number_input(
+                "Antal dagar innan utgång för varning",
+                min_value=1,
+                max_value=30,
+                value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('expiring_soon_days', 7),
+                help="Skicka varning när vara går ut inom detta antal dagar"
+            )
+        else:
+            expiring_soon_days = 7
+
+        if notify_low_quantity:
+            low_quantity_threshold = st.number_input(
+                "Gräns för lågt antal",
+                min_value=1,
+                max_value=10,
+                value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('low_quantity_threshold', 2),
+                help="Skicka varning när antalet är lägre än detta"
+            )
+        else:
+            low_quantity_threshold = 2
+
+        # Update the preferences when activating notifications
+        notification_preferences = {
+            'notify_expired': notify_expired,
+            'notify_expiring_soon': notify_expiring_soon,
+            'notify_low_quantity': notify_low_quantity,
+            'notify_removed_items': notify_removed_items,
+            'notify_added_items': notify_added_items,
+            'expiring_soon_days': expiring_soon_days,
+            'low_quantity_threshold': low_quantity_threshold
+        }
+
+        # Add a save settings button
+        if st.button("Spara inställningar"):
+            if config and config['email']['notifications'].get('recipient'):
+                # Update only the preferences in the existing config
+                config['email']['notifications']['preferences'] = notification_preferences
+                try:
+                    with open('email_config.yml', 'w', encoding='utf-8') as file:
+                        yaml.dump(config, file)
+                    st.success("Inställningar sparade!")
+                except Exception as e:
+                    st.error(f"Kunde inte spara inställningar: {str(e)}")
+            else:
+                st.error("Email-notifieringar måste vara aktiverade först")
+
+        # Existing activation button
+        if st.button("Aktivera email-notifieringar"):
+            if email_recipient:
+                if schedule_daily_notification(email_recipient, weekdays, time_str, notification_preferences):
+                    st.success("Email-notifieringar aktiverade!")
+                    # Send first notification immediately
                     expired_items, expiring_warnings = check_expiring_items()
                     if expired_items or expiring_warnings:
                         all_items = expired_items + expiring_warnings
-                        
-                        # Create a temporary copy of the config for immediate sending
-                        temp_config = config.copy()
-                        temp_config['email']['notifications']['last_sent'] = None  # Reset last sent time
-                        
-                        with open('email_config.yml', 'w', encoding='utf-8') as file:
-                            yaml.dump(temp_config, file)
-                        
-                        # Try to send notification
-                        try:
-                            if send_expiration_notification(all_items, config['email']['notifications']['recipient']):
-                                st.success("Notifiering skickad!")
-                            else:
-                                st.error("Kunde inte skicka notifiering")
-                        except Exception as e:
-                            st.error(f"Fel vid skickande av notifiering: {str(e)}")
-                            
-                        # Restore original config
-                        with open('email_config.yml', 'w', encoding='utf-8') as file:
-                            yaml.dump(config, file)
+                        if send_expiration_notification(all_items, email_recipient):
+                            st.success("Första notifieringen skickad!")
+                else:
+                    st.error("Kunde inte aktivera email-notifieringar")
+            else:
+                st.error("Ange en email-adress")
+
+        # Add button to manually send notification
+        if st.button("Skicka notifiering nu"):
+            expired_items, expiring_warnings = check_expiring_items()
+            if expired_items or expiring_warnings:
+                all_items = expired_items + expiring_warnings
+                
+                # Create a temporary copy of the config for immediate sending
+                temp_config = config.copy()
+                temp_config['email']['notifications']['last_sent'] = None  # Reset last sent time
+                
+                with open('email_config.yml', 'w', encoding='utf-8') as file:
+                    yaml.dump(temp_config, file)
+                
+                # Try to send notification
+                try:
+                    if send_expiration_notification(all_items, config['email']['notifications']['recipient']):
+                        st.success("Notifiering skickad!")
                     else:
-                        st.info("Inga varor att notifiera om")
-                        # Debug information
-                        st.write("Debug info:")
-                        st.write(f"Antal utgångna varor: {len(expired_items)}")
-                        st.write(f"Antal varor som snart går ut: {len(expiring_warnings)}")
+                        st.error("Kunde inte skicka notifiering")
+                except Exception as e:
+                    st.error(f"Fel vid skickande av notifiering: {str(e)}")
+                    
+                # Restore original config
+                with open('email_config.yml', 'w', encoding='utf-8') as file:
+                    yaml.dump(config, file)
+            else:
+                st.info("Inga varor att notifiera om")
+                # Debug information
+                st.write("Debug info:")
+                st.write(f"Antal utgångna varor: {len(expired_items)}")
+                st.write(f"Antal varor som snart går ut: {len(expiring_warnings)}")
 

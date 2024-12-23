@@ -112,53 +112,61 @@ def save_users(users):
         yaml.dump(users_to_save, file)
 
 def add_user(username, password, role='user'):
-    """Lägg till ny användare"""
+    """Add a new user and show admin the credentials for secrets.toml"""
+    # Hash the password
+    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+    
+    # Update users.yml with role information
     try:
-        # Update users.yml
-        users = load_users()
-        if username in users:
-            return False, "Användarnamnet finns redan"
-        
-        users[username] = {
-            'role': role
-        }
-        save_users(users)
+        with open('users.yml', 'r') as f:
+            users = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        users = {}
+    
+    users[username] = {'role': role}
+    
+    # Save role info to users.yml
+    with open('users.yml', 'w') as f:
+        yaml.dump(users, f)
+    
+    # Try to update secrets.toml, but don't fail if we can't
+    try:
+        with open('.streamlit/secrets.toml', 'a') as f:
+            f.write(f'\n[users]\n{username} = "{hashed_password}"')
+    except (PermissionError, FileNotFoundError):
+        # If we can't modify secrets.toml, show the admin what to add
+        st.warning("Could not automatically update secrets.toml")
+        st.info("Please add the following to your Streamlit Cloud secrets:")
+        st.code(f'[users]\n{username} = "{hashed_password}"', language='toml')
+    
+    # Send notification about new user
+    send_user_management_notification(
+        "created", 
+        username, 
+        performed_by=st.session_state.get('username', 'Unknown')
+    )
+    return True, f"User {username} created successfully"
 
-        # Hash the password before storing
-        hashed_password = hash_password(password)
-
-        # Update secrets.toml
-        secrets_path = '.streamlit/secrets.toml'
-        with open(secrets_path, 'r') as f:
-            secrets_content = f.readlines()
-        
-        # Find [users] section and add new user
-        new_secrets = []
-        in_users_section = False
-        for line in secrets_content:
-            if '[users]' in line:
-                in_users_section = True
-            new_secrets.append(line)
-            if in_users_section and line.strip() == '[users]':
-                new_secrets.append(f'{username} = "{hashed_password}"\n')
-        
-        if not in_users_section:
-            new_secrets.extend(['\n[users]\n', f'{username} = "{hashed_password}"\n'])
-
-        with open(secrets_path, 'w') as f:
-            f.writelines(new_secrets)
-
-        success = True  # If we get here, user was created successfully
-        if success:
-            # Send notification about new user
-            send_user_management_notification(
-                "created", 
-                username, 
-                performed_by=st.session_state.get('username', 'Unknown')
-            )
-        return True, f"Användare {username} skapades"
-    except Exception as e:
-        return False, f"Fel vid skapande av användare: {str(e)}"
+def check_password(username, password):
+    """Check if username/password combo is valid"""
+    # Check if user exists in users.yml first
+    try:
+        with open('users.yml', 'r') as f:
+            users = yaml.safe_load(f) or {}
+            if username not in users:
+                return False
+    except FileNotFoundError:
+        return False
+    
+    # Then verify password from secrets
+    try:
+        stored_password = st.secrets.users[username]
+        if stored_password == hashlib.sha256(password.encode()).hexdigest():
+            return True
+    except (KeyError, AttributeError):
+        pass
+    
+    return False
 
 def delete_user(username):
     """Ta bort användare"""
