@@ -5,7 +5,7 @@ Storage unit data model and operations
 import streamlit as st
 from datetime import datetime
 from utils.helpers import strip_emoji
-from database import save_storage_data, load_storage_data
+from databasepy import save_storage_data, load_storage_data
 
 class StorageManager:
     def __init__(self):
