@@ -218,23 +218,26 @@ def save_data():
 def load_data():
     """Load all data from MongoDB"""
     try:
+        # Clear all session state data first
+        st.session_state.storage_units = {}
+        st.session_state.expiration_reminders = {}
+        st.session_state.item_history = []
+        
+        # Clear any cached data
+        st.cache_data.clear()
+        
+        # Load fresh data from database
         storage_data = load_storage_data()
         if storage_data:
             st.session_state.storage_units = storage_data
-        else:
-            st.session_state.storage_units = {}
-
+            
         history_data = load_history_data()
         if history_data:
             st.session_state.item_history = history_data
-        else:
-            st.session_state.item_history = []
-
+            
         reminders_data = load_reminders_data()
         if reminders_data:
             st.session_state.expiration_reminders = reminders_data
-        else:
-            st.session_state.expiration_reminders = {}
 
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
@@ -301,7 +304,7 @@ def populate_example_data():
     # Standardenheter som kan läggas till
     base_units = {
         "Kökskylskåp": "🧊 Kylskåp",     # För vardagliga kylvaror
-        "Källarfrys": "❄️ Frys",         # För långtidsförvaring
+        "K��llarfrys": "❄️ Frys",         # För långtidsförvaring
         "Skafferi": "🏪 Skafferi",       # För torrvaror
         "Kryddskåp": "🗄️ Skåp"          # För kryddor och smaksättare
     }
@@ -536,7 +539,7 @@ with st.sidebar:
                         f"- Utgångsdatum: {item['exp_date']}"
                     )
             else:
-                st.info("Inga varor på väg att gå ut!")
+                st.info("Inga varor p�� väg att gå ut!")
     
     # Endast administratörer kan lägga till förvaringsenheter
     if is_admin():
@@ -574,7 +577,7 @@ if is_admin() and len(selected_tab) > 2:
         st.title("⚙️ Administratörsinställningar")
         st.warning("🚨Varning🚨: Dessa funktioner kan skapa instabilitet och påverka all lagrad data!")
 
-        with st.expander("⚙️ Inställningar för data"):
+        with st.expander("️ Inställningar för data"):
             col1, col2 = st.columns(2)
 
             with col1:
@@ -601,7 +604,7 @@ if is_admin() and len(selected_tab) > 2:
                 if st.button("Rensa förvaringsenheter", type="secondary"):
                     st.session_state.storage_units = {}
                     save_data()
-                    st.success("Alla förvaringsenheter har rensats!")
+                    st.success("Alla f��rvaringsenheter har rensats!")
 
                 if st.button("Rensa påminnelser", type="secondary"):
                     st.session_state.expiration_reminders = {}
@@ -1111,28 +1114,34 @@ with selected_tab[0]:
         # Ta bort förvaringsenhet
         if is_admin():
             if st.button("Ta bort förvaringsenhet", type="secondary"):
-                # Clear all session state related to this unit
-                del st.session_state.storage_units[selected_unit]
-                
-                # Clear expiration reminders for this unit
-                st.session_state.expiration_reminders = {
-                    k: v for k, v in st.session_state.expiration_reminders.items()
-                    if not k.startswith(f"{selected_unit}_")
-                }
-                
-                # Clear any cached data
-                for key in list(st.session_state.keys()):
-                    if key.startswith('show_quantity_selector_'):
-                        del st.session_state[key]
-                
-                # Force clear all caches
-                st.cache_data.clear()
-                
-                # Save changes
-                save_data()
-                
-                # Rerun the app
-                st.rerun()
+                try:
+                    # Clear all session state related to this unit
+                    del st.session_state.storage_units[selected_unit]
+                    
+                    # Clear expiration reminders for this unit
+                    st.session_state.expiration_reminders = {
+                        k: v for k, v in st.session_state.expiration_reminders.items()
+                        if not k.startswith(f"{selected_unit}_")
+                    }
+                    
+                    # Clear all caches
+                    st.cache_data.clear()
+                    
+                    # Save changes to database
+                    save_data()
+                    
+                    # Clear session state and reload data
+                    for key in list(st.session_state.keys()):
+                        if key != "logged_in" and key != "username" and key != "user_role":
+                            del st.session_state[key]
+                    
+                    # Force reload data
+                    load_data()
+                    
+                    # Rerun the app
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error deleting storage unit: {str(e)}")
 
 # ===== STATISTIKFLIK =====
 with selected_tab[1]:
