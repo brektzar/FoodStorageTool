@@ -26,6 +26,47 @@ from database import (save_storage_data, load_storage_data,
 import pandas as pd
 pd.set_option('future.no_silent_downcasting', True)
 
+# ===== DEFINE FUNCTIONS FIRST =====
+def save_data():
+    """Save all data to MongoDB"""
+    save_storage_data(st.session_state.storage_units)
+    save_history_data(st.session_state.item_history)
+    save_reminders_data(st.session_state.expiration_reminders)
+    
+    # Clear expired items cache
+    if 'expired_items' in st.session_state:
+        del st.session_state.expired_items
+    if 'expiring_warnings' in st.session_state:
+        del st.session_state.expiring_warnings
+
+def load_data():
+    """Load all data from MongoDB"""
+    try:
+        # Load fresh data from database
+        storage_data = load_storage_data()
+        if storage_data:
+            st.session_state.storage_units = storage_data
+        else:
+            st.session_state.storage_units = {}
+            
+        history_data = load_history_data()
+        if history_data:
+            st.session_state.item_history = history_data
+        else:
+            st.session_state.item_history = []
+            
+        reminders_data = load_reminders_data()
+        if reminders_data:
+            st.session_state.expiration_reminders = reminders_data
+        else:
+            st.session_state.expiration_reminders = {}
+
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        st.session_state.storage_units = {}
+        st.session_state.expiration_reminders = {}
+        st.session_state.item_history = []
+
 # ===== AUTHENTICATION AND INITIALIZATION =====
 # First check if user is logged in
 if not is_logged_in():
@@ -162,48 +203,6 @@ def add_to_history(action, item_name, category, quantity, storage_unit, expired=
         if ((action == 'added' and preferences.get('notify_added_items')) or 
             (action == 'removed' and preferences.get('notify_removed_items'))) and recipient:
             send_immediate_notification(action, history_entry, recipient)
-
-
-def save_data():
-    """Save all data to MongoDB"""
-    save_storage_data(st.session_state.storage_units)
-    save_history_data(st.session_state.item_history)
-    save_reminders_data(st.session_state.expiration_reminders)
-    
-    # Clear expired items cache
-    if 'expired_items' in st.session_state:
-        del st.session_state.expired_items
-    if 'expiring_warnings' in st.session_state:
-        del st.session_state.expiring_warnings
-
-
-def load_data():
-    """Load all data from MongoDB"""
-    try:
-        # Load fresh data from database
-        storage_data = load_storage_data()
-        if storage_data:
-            st.session_state.storage_units = storage_data
-        else:
-            st.session_state.storage_units = {}
-            
-        history_data = load_history_data()
-        if history_data:
-            st.session_state.item_history = history_data
-        else:
-            st.session_state.item_history = []
-            
-        reminders_data = load_reminders_data()
-        if reminders_data:
-            st.session_state.expiration_reminders = reminders_data
-        else:
-            st.session_state.expiration_reminders = {}
-
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
-        st.session_state.storage_units = {}
-        st.session_state.expiration_reminders = {}
-        st.session_state.item_history = []
 
 
 def check_expiring_items():
