@@ -3,62 +3,28 @@ MATFÖRVARINGSHANTERARE
 ======================
 
 En applikation för att hålla koll på innehållet i kylskåp, frysar och andra matförvaringsenheter.
-
-Huvudfunktioner:
----------------
-1. Förvaringshantering
-   - Skapa och hantera olika förvaringsenheter (kylskåp, frys, skafferi, etc.)
-   - Lägg till och ta bort varor i varje enhet
-   - Spåra mängd, kategori och datum för varje vara
-
-2. Utgångsdatumhantering
-   - Automatisk varning för varor som närmar sig utgångsdatum
-   - Tydlig markering av utgångna varor
-   - Påminnelsesystem med anpassningsbara tidsintervall
-   - Spårning av utgångsmönster
-
-3. Statistik och Analys
-   - Detaljerad statistik över användningsmönster
-   - Visualisering av data genom grafer och diagram
-   - Filtrering av data baserat på tidsperioder
-   - Analys av utgångsmönster och matsvinn
-
-4. Datahantering
-   - Persistent lagring av all data i JSON-format
-   - Möjlighet att lägga till exempeldata
-   - Separata kontroller för olika datatyper
-   - Säkerhetskopieringsmöjligheter
-
-Tekniska funktioner:
-------------------
-- Automatisk datumhantering och validering
-- Responsiv design som fungerar på både desktop och mobil
-- Cachad statistikgenerering för bättre prestanda
-- Felhantering för korrupta eller saknade datafiler
-- Stöd för svenska tecken och emojis
-
-Användargränssnitt:
------------------
-- Sidofält för snabb åtkomst till viktiga funktioner
-- Flikbaserad navigation mellan förvaring och statistik
-- Expanderbara sektioner för bättre översikt
-- Tydliga varningar och bekräftelsedialoger
-- Administratörskontroller för datahantering
-
-Datastruktur:
-------------
-- Förvaringsenheter med metadata och innehåll
-- Historikspårning för alla ändringar
-- Påminnelsesystem med tidsstämplar
-- Kategorisering av varor för bättre organisation
-
-Utvecklad med:
--------------
-- Streamlit för användargränssnittet
-- Pandas för dataanalys
-- Plotly för visualiseringar
-- JSON för datalagring
 """
+
+# ===== IMPORTERA NÖDVÄNDIGA BIBLIOTEK =====
+import streamlit as st
+import json
+from datetime import datetime, timedelta
+import os
+import plotly.express as px
+from collections import Counter
+import random
+import time
+from auth import login, logout, is_admin, is_logged_in, save_users, add_user, delete_user, list_users, change_password
+from email_handler import send_expiration_notification, schedule_daily_notification, load_email_config, get_email_schedule_info, get_next_scheduled_time, format_weekdays, send_immediate_notification
+import yaml
+from database import (save_storage_data, load_storage_data, 
+                     save_history_data, load_history_data,
+                     save_reminders_data, load_reminders_data,
+                     init_connection)
+
+# Konfigurera pandas för att hantera framtida varningar
+import pandas as pd
+pd.set_option('future.no_silent_downcasting', True)
 
 # ===== AUTHENTICATION AND INITIALIZATION =====
 # First check if user is logged in
