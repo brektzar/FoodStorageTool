@@ -71,7 +71,7 @@ def load_data():
 # First check if user is logged in
 if not is_logged_in():
     login()
-    st.stop()
+    # st.stop()
 
 # After successful login, initialize MongoDB and load data
 if is_logged_in():

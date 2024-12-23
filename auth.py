@@ -7,9 +7,11 @@ import hashlib
 from datetime import datetime, timedelta
 import extra_streamlit_components as stx  # You'll need to install this package
 
+
 def get_manager():
     """Get cookie manager instance"""
     return stx.CookieManager()
+
 
 def load_users():
     """Load user configuration from secrets"""
@@ -17,7 +19,7 @@ def load_users():
         users = {}
         user_data = st.secrets.get("users", {})
         user_roles = st.secrets.get("user_roles", {})
-        
+
         for username in user_data:
             users[username] = {
                 'password': user_data[username],
@@ -28,6 +30,7 @@ def load_users():
         print(f"Error loading users: {e}")
         return {}
 
+
 # Hascha lösenord för säker jämförelse
 def hash_password(password):
     """Hasha lösenord för säker jämförelse"""
@@ -36,11 +39,13 @@ def hash_password(password):
     salted = (password + salt).encode('utf-8')
     return hashlib.sha256(salted).hexdigest()
 
+
 # Add this temporarily after the hash_password function
 def debug_password_hash(password):
     hashed = hash_password(password)
     print(f"Hash for '{password}': {hashed}")
     return hashed
+
 
 # Kontrollera om användaren är admin
 def is_admin():
@@ -48,19 +53,21 @@ def is_admin():
         return st.session_state.user_role == 'admin'
     return False
 
+
 # Kontrollera om användaren är inloggad
 def is_logged_in():
     return 'logged_in' in st.session_state and st.session_state.logged_in
+
 
 # Hantera inloggning
 def login():
     """Handle user login with cookie persistence"""
     cookie_manager = get_manager()
-    
+
     # First check if already logged in via session state
     if st.session_state.get('logged_in', False):
         return True
-    
+
     # Then check for valid login cookie
     login_cookie = cookie_manager.get('login_status')
     if login_cookie:
@@ -77,32 +84,32 @@ def login():
             # Invalid cookie format or expired
             cookie_manager.delete('login_status')
             st.session_state.logged_in = False
-    
+
     # If we get here, user is not logged in
     # Show login form
     st.header("🔐 Logga in")
     username = st.text_input("Användarnamn", key="login_username")
     password = st.text_input("Lösenord", type="password", key="login_password")
     remember_me = st.checkbox("Håll mig inloggad i 30 dagar", key="login_remember")
-    
+
     if st.button("Logga in", key="login_button"):
         try:
             users = load_users()
             if username in users:
                 input_hash = hash_password(password)
                 stored_hash = users[username]['password']
-                
+
                 if input_hash == stored_hash:
                     st.session_state.logged_in = True
                     st.session_state.username = username
                     st.session_state.user_role = users[username]['role']
-                    
+
                     # Set login cookie if remember me is checked
                     if remember_me:
                         expiry = datetime.now() + timedelta(days=30)
                         cookie_value = f"{username}|{expiry.isoformat()}"
                         cookie_manager.set('login_status', cookie_value, expires_at=expiry)
-                    
+
                     st.rerun()
                 else:
                     st.error("Felaktigt lösenord")
@@ -111,23 +118,25 @@ def login():
         except Exception as e:
             st.error(f"Inloggningsfel: {str(e)}")
         return False
-    
+
     return False
+
 
 # Logga ut användaren
 def logout():
     """Handle logout and clear cookies"""
     cookie_manager = get_manager()
-    
+
     if st.sidebar.button("Logga ut"):
         # Clear session state
         for key in ['logged_in', 'username', 'user_role']:
             if key in st.session_state:
                 del st.session_state[key]
-        
+
         # Clear login cookie
         cookie_manager.delete('login_status')
         st.rerun()
+
 
 def add_user(username, password, role='user'):
     """Lägg till ny användare"""
@@ -136,37 +145,38 @@ def add_user(username, password, role='user'):
         users = load_users()
         if username in users:
             return False, "Användarnamnet finns redan"
-        
+
         # Hash the password
         hashed_password = hash_password(password)
-        
+
         # Prepare data for saving
         users_data = {name: data['password'] for name, data in users.items()}
         roles_data = {name: data['role'] for name, data in users.items()}
-        
+
         # Add new user
         users_data[username] = hashed_password
         roles_data[username] = role
-        
+
         # Save to file
         success, message = save_users(users_data, roles_data)
         if success:
             st.rerun()
             return True, f"Användare {username} skapades"
-        
+
         # Handle read-only filesystem error
         if "Streamlit Cloud" in message:
             st.error("Kunde inte spara användaren automatiskt")
             st.info("För att lägga till användaren manuellt:")
             st.code(message.split("```toml\n")[1].split("```")[0], language="toml")
             st.info("1. Gå till Streamlit Cloud dashboard\n"
-                   "2. Välj din app\n"
-                   "3. Gå till Settings -> Secrets\n"
-                   "4. Kopiera innehållet ovan och klistra in det i Secrets")
+                    "2. Välj din app\n"
+                    "3. Gå till Settings -> Secrets\n"
+                    "4. Kopiera innehållet ovan och klistra in det i Secrets")
         return False, message
-        
+
     except Exception as e:
         return False, f"Fel vid skapande av användare: {str(e)}"
+
 
 def delete_user(username):
     """Ta bort användare"""
@@ -174,23 +184,24 @@ def delete_user(username):
         users = load_users()
         if username not in users:
             return False, "Användaren finns inte"
-        
+
         if username == 'admin':
             return False, "Kan inte ta bort huvudadmin"
-        
+
         # Prepare data for saving
         users_data = {name: data['password'] for name, data in users.items() if name != username}
         roles_data = {name: data['role'] for name, data in users.items() if name != username}
-        
+
         # Save to file
         success, message = save_users(users_data, roles_data)
         if success:
             st.rerun()
             return True, f"Användare {username} togs bort"
         return False, message
-        
+
     except Exception as e:
         return False, f"Fel vid borttagning av användare: {str(e)}"
+
 
 def list_users():
     """Hämta lista över alla användare
@@ -205,6 +216,7 @@ def list_users():
     except Exception:
         return {}
 
+
 def change_password(username, new_password):
     """Change user password"""
     try:
@@ -214,22 +226,23 @@ def change_password(username, new_password):
 
         # Hash the new password
         hashed_password = hash_password(new_password)
-        
+
         # Prepare data for saving
         users_data = {name: data['password'] for name, data in users.items()}
         roles_data = {name: data['role'] for name, data in users.items()}
-        
+
         # Update password
         users_data[username] = hashed_password
-        
+
         # Save to file
         success, message = save_users(users_data, roles_data)
         if success:
             return True, f"Lösenord ändrat för {username}"
         return False, message
-        
+
     except Exception as e:
         return False, f"Fel vid ändring av lösenord: {str(e)}"
+
 
 def save_users(users_data, roles_data):
     """Save users and roles to secrets.toml
@@ -243,20 +256,20 @@ def save_users(users_data, roles_data):
     """
     try:
         secrets_path = '.streamlit/secrets.toml'
-        
+
         # Generate the new secrets content
         new_secrets = []
-        
+
         # Add users section
         new_secrets.append('[users]\n')
         for username, password in users_data.items():
             new_secrets.append(f'{username} = "{password}"\n')
-        
+
         # Add roles section
         new_secrets.append('\n[user_roles]\n')
         for username, role in roles_data.items():
             new_secrets.append(f'{username} = "{role}"\n')
-        
+
         # Try to write to file
         try:
             with open(secrets_path, 'w') as f:
@@ -275,6 +288,6 @@ def save_users(users_data, roles_data):
                 return False, error_message
             # Other permission errors
             return False, f"Permission error: {str(e)}"
-            
+
     except Exception as e:
         return False, f"Error saving users: {str(e)}"
