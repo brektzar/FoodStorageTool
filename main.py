@@ -493,8 +493,16 @@ def check_auth():
         login()
         st.stop()  # Stoppa körningen här om inte inloggad
 
-# Ladda existerande data när appen startar
-load_data()
+# At the top of main.py, after imports
+
+# Initialize MongoDB connection first
+if 'mongodb_initialized' not in st.session_state:
+    init_connection()
+    st.session_state.mongodb_initialized = True
+
+# Load data if not already loaded
+if 'storage_units' not in st.session_state:
+    load_data()
 
 # Kontrollera autentisering först
 check_auth()

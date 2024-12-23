@@ -32,7 +32,6 @@ def init_connection():
         
         # Send a ping to confirm a successful connection
         client.admin.command('ping')
-        st.success("Successfully connected to MongoDB!")
         return client
     except Exception as e:
         st.error(f"Could not connect to database: {str(e)}")
