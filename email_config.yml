@@ -1,0 +1,16 @@
+email:
+  notifications:
+    frequency: daily
+    last_sent: null
+    preferences:
+      expiring_soon_days: 2
+      low_quantity_threshold: 4
+      notify_added_items: true
+      notify_expired: true
+      notify_expiring_soon: true
+      notify_low_quantity: true
+      notify_removed_items: true
+    schedule:
+      time: 02:45
+      weekdays:
+      - 0

@@ -24,12 +24,16 @@ def load_email_config():
         st.error("Email configuration file (email_config.yml) not found!")
         return None
 
-def send_expiration_notification(items, recipient_email):
+def send_expiration_notification(items, recipient_email=None):
     """Send email notification about expiring items"""
     config = load_email_config()
     if not config:
         st.error("Kunde inte ladda email-konfiguration")
         return False
+
+    # Get recipient from secrets if not provided
+    if recipient_email is None:
+        recipient_email = st.secrets["email"]["recipient"]
 
     # Get notification preferences
     preferences = config['email']['notifications'].get('preferences', {
