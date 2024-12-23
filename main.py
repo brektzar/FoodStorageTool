@@ -245,20 +245,18 @@ def load_data():
 
 def check_expiring_items():
     """Kontrollera varor som närmar sig utgångsdatum och utgångna varor"""
-    # Clear any cached results
-    if 'expired_items' in st.session_state:
-        del st.session_state.expired_items
-    if 'expiring_warnings' in st.session_state:
-        del st.session_state.expiring_warnings
-        
+    # Always start with fresh lists
     expiration_warnings = []  # Lista för varor som snart går ut
     expired_items = []        # Lista för varor som redan har gått ut
     current_date = datetime.now().date()
 
-    # Only check if there are storage units
-    if st.session_state.storage_units:
+    # Only check if there are storage units and they have contents
+    if st.session_state.storage_units and any(unit.get('contents') for unit in st.session_state.storage_units.values()):
         # Gå igenom alla förvaringsenheter och deras innehåll
         for storage_name, storage_unit in st.session_state.storage_units.items():
+            if not storage_unit.get('contents'):  # Skip if no contents
+                continue
+                
             for item_name, item_details in storage_unit['contents'].items():
                 if 'expiration_date' in item_details:
                     try:
@@ -1113,19 +1111,28 @@ with selected_tab[0]:
         # Ta bort förvaringsenhet
         if is_admin():
             if st.button("Ta bort förvaringsenhet", type="secondary"):
-                # Clear the storage unit
+                # Clear all session state related to this unit
                 del st.session_state.storage_units[selected_unit]
                 
-                # Clear any expiration reminders for this unit
+                # Clear expiration reminders for this unit
                 st.session_state.expiration_reminders = {
                     k: v for k, v in st.session_state.expiration_reminders.items()
                     if not k.startswith(f"{selected_unit}_")
                 }
                 
-                # Save all changes
+                # Clear any cached data
+                for key in list(st.session_state.keys()):
+                    if key.startswith('show_quantity_selector_'):
+                        del st.session_state[key]
+                
+                # Force clear all caches
+                st.cache_data.clear()
+                
+                # Save changes
                 save_data()
-                st.session_state.clear_cache = True  # Set flag to clear cache
-                st.rerun()  # Force page reload
+                
+                # Rerun the app
+                st.rerun()
 
 # ===== STATISTIKFLIK =====
 with selected_tab[1]:
