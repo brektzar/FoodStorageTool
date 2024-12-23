@@ -508,7 +508,7 @@ with st.sidebar:
                     save_data()
                     st.success(f"Lade till {unit_name}")
                 else:
-                    st.error("En förvaringsenhet med detta namn finns redan!")
+                    st.error("En f��rvaringsenhet med detta namn finns redan!")
 
 # Huvudinnehåll
 st.title("🧊 Matförvaring")
