@@ -72,31 +72,6 @@ def load_data():
         st.session_state.item_history = []
 
 
-# ===== AUTHENTICATION AND INITIALIZATION =====
-# First check if user is logged in
-if not is_logged_in():
-    login()
-    st.stop()
-
-# After successful login, initialize MongoDB and load data
-if is_logged_in():
-    if 'mongodb_initialized' not in st.session_state:
-        init_connection()
-        st.session_state.mongodb_initialized = True
-
-    if 'storage_units' not in st.session_state:
-        load_data()
-
-# ===== SIDEBAR =====
-with st.sidebar:
-    # Logout button
-    if st.button("Logga ut", key="main_logout_button"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
-
-    # Rest of the sidebar code...
-
 # ===== INITIALISERA SESSIONSTILLSTÅND =====
 # Sessionstillstånd är variabler som behåller sina värden mellan olika körningar av appen
 # Om variablerna inte finns, skapa dem med tomma standardvärden
@@ -299,7 +274,7 @@ def populate_example_data():
         "Pasta": "🍝 Spannmål & Pasta",  # Torr pasta
         "Ris": "🍝 Spannmål & Pasta",  # Basmat
         "Juice": "🥤 Drycker",  # Färskpressad
-        "Läsk": "��� Drycker",  # Lång hållbarhet
+        "Läsk": "🥤 Drycker",  # Lång hållbarhet
         "Ketchup": "🧂 Kryddor & Såser",  # Öppnad flaska
         "Senap": "🧂 Kryddor & Såser",  # Kryddsäs
         "Glass": "🧊 Frysta varor",  # Dessert
@@ -449,33 +424,22 @@ def generate_statistics(history_data, storage_data, time_filter=None):
     return df, expired_df
 
 
-# At the very top of main.py, add permission checking
-def check_auth():
-    """Kontrollera autentisering och behörighet
-    
-    Stoppar körningen om användaren inte är inloggad.
-    Visar endast inloggningsformuläret.
-    """
-    if not is_logged_in():
-        login()
-        st.stop()
-    else:
-        # Add logout button in sidebar only once
-        with st.sidebar:
-            if st.button("Logga ut", key="sidebar_logout_button"):
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
-                st.rerun()
-
-# At the top of main.py, after imports
-
 # Initialize MongoDB connection first
 if 'mongodb_initialized' not in st.session_state:
     init_connection()
     st.session_state.mongodb_initialized = True
 
 # Single authentication check that includes the logout button
-check_auth()
+if not is_logged_in():
+    login()
+    st.stop()
+else:
+    # Add logout button in sidebar
+    with st.sidebar:
+        if st.button("Logga ut", key="main_logout"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
 
 # Only load data after confirming user is logged in
 if 'storage_units' not in st.session_state:

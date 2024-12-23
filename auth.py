@@ -130,15 +130,14 @@ def logout():
     """Handle logout and clear cookies"""
     cookie_manager = get_manager()
     
-    if st.sidebar.button("Logga ut", key="auth_logout_button"):
-        # Clear session state
-        for key in ['logged_in', 'username', 'user_role']:
-            if key in st.session_state:
-                del st.session_state[key]
-        
-        # Clear login cookie
-        cookie_manager.delete('login_status')
-        st.rerun()
+    # Clear session state
+    for key in ['logged_in', 'username', 'user_role']:
+        if key in st.session_state:
+            del st.session_state[key]
+    
+    # Clear login cookie
+    cookie_manager.delete('login_status')
+    st.rerun()
 
 
 def add_user(username, password, role='user'):
