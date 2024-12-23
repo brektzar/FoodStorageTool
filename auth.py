@@ -118,9 +118,16 @@ def add_user(username, password, role='user'):
         if success:
             st.rerun()
             return True, f"Användare {username} skapades"
-        if "Kopiera följande innehåll" in message:
+        
+        # Handle read-only filesystem error
+        if "Streamlit Cloud" in message:
+            st.error("Kunde inte spara användaren automatiskt")
+            st.info("För att lägga till användaren manuellt:")
             st.code(message.split("```toml\n")[1].split("```")[0], language="toml")
-            st.info("Kopiera innehållet ovan till Streamlit Cloud secrets och försök igen.")
+            st.info("1. Gå till Streamlit Cloud dashboard\n"
+                   "2. Välj din app\n"
+                   "3. Gå till Settings -> Secrets\n"
+                   "4. Kopiera innehållet ovan och klistra in det i Secrets")
         return False, message
         
     except Exception as e:
@@ -220,15 +227,19 @@ def save_users(users_data, roles_data):
             with open(secrets_path, 'w') as f:
                 f.writelines(new_secrets)
             return True, "Users saved successfully"
-        except (PermissionError, FileNotFoundError):
-            # If we can't write to the file, return the content that needs to be copied
-            secrets_content = ''.join(new_secrets)
-            error_message = (
-                "Kunde inte spara till secrets.toml. "
-                "Kopiera följande innehåll till Streamlit Cloud secrets:\n\n"
-                f"```toml\n{secrets_content}```"
-            )
-            return False, error_message
+        except (PermissionError, OSError) as e:
+            # If we can't write due to read-only filesystem (Streamlit Cloud)
+            if "[Errno 30]" in str(e):
+                secrets_content = ''.join(new_secrets)
+                error_message = (
+                    "Kunde inte spara till secrets.toml eftersom Streamlit Cloud har ett skrivskyddat filsystem. "
+                    "För att lägga till/ändra användare, kopiera följande innehåll till Streamlit Cloud secrets "
+                    "(Settings -> Secrets):\n\n"
+                    f"```toml\n{secrets_content}```"
+                )
+                return False, error_message
+            # Other permission errors
+            return False, f"Permission error: {str(e)}"
             
     except Exception as e:
         return False, f"Error saving users: {str(e)}"
