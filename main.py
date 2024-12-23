@@ -86,13 +86,13 @@ if not is_logged_in():
     login()
     st.stop()
 
-# Initialize MongoDB connection after authentication
+# Initialize MongoDB only after successful login
 if 'mongodb_initialized' not in st.session_state:
     init_connection()
     st.session_state.mongodb_initialized = True
 
-# Load data if not already loaded
-if 'storage_units' not in st.session_state:
+# Load data if not already loaded and user is logged in
+if is_logged_in() and 'storage_units' not in st.session_state:
     load_data()
 
 # ===== INITIALISERA SESSIONSTILLSTÅND =====
@@ -515,7 +515,10 @@ check_auth()
 
 # Visa utloggningsknapp i sidofältet
 with st.sidebar:
-    logout()
+    if st.button("Logga ut"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
     
     # Varningar för utgångsdatum (synliga för alla inloggade)
     expired_items, expiring_warnings = check_expiring_items()
