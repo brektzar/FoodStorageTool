@@ -81,6 +81,20 @@ from database import (save_storage_data, load_storage_data,
 import pandas as pd
 pd.set_option('future.no_silent_downcasting', True)
 
+# Check authentication first
+if not is_logged_in():
+    login()
+    st.stop()
+
+# Initialize MongoDB connection after authentication
+if 'mongodb_initialized' not in st.session_state:
+    init_connection()
+    st.session_state.mongodb_initialized = True
+
+# Load data if not already loaded
+if 'storage_units' not in st.session_state:
+    load_data()
+
 # ===== INITIALISERA SESSIONSTILLSTÅND =====
 # Sessionstillstånd är variabler som behåller sina värden mellan olika körningar av appen
 # Om variablerna inte finns, skapa dem med tomma standardvärden
