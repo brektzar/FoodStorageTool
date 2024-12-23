@@ -10,7 +10,10 @@ import extra_streamlit_components as stx  # You'll need to install this package
 
 def get_manager():
     """Get cookie manager instance"""
-    return stx.CookieManager()
+    # Use a unique key for the cookie manager
+    if 'cookie_manager' not in st.session_state:
+        st.session_state.cookie_manager = stx.CookieManager(key="unique_cookie_manager")
+    return st.session_state.cookie_manager
 
 
 def load_users():

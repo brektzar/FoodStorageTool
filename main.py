@@ -15,16 +15,19 @@ from collections import Counter
 import random
 import time
 from auth import login, logout, is_admin, is_logged_in, save_users, add_user, delete_user, list_users, change_password
-from email_handler import send_expiration_notification, schedule_daily_notification, load_email_config, get_email_schedule_info, get_next_scheduled_time, format_weekdays, send_immediate_notification
+from email_handler import send_expiration_notification, schedule_daily_notification, load_email_config, \
+    get_email_schedule_info, get_next_scheduled_time, format_weekdays, send_immediate_notification
 import yaml
-from database import (save_storage_data, load_storage_data, 
-                     save_history_data, load_history_data,
-                     save_reminders_data, load_reminders_data,
-                     init_connection)
+from database import (save_storage_data, load_storage_data,
+                      save_history_data, load_history_data,
+                      save_reminders_data, load_reminders_data,
+                      init_connection)
 
 # Konfigurera pandas för att hantera framtida varningar
 import pandas as pd
+
 pd.set_option('future.no_silent_downcasting', True)
+
 
 # ===== DEFINE FUNCTIONS FIRST =====
 def save_data():
@@ -32,12 +35,13 @@ def save_data():
     save_storage_data(st.session_state.storage_units)
     save_history_data(st.session_state.item_history)
     save_reminders_data(st.session_state.expiration_reminders)
-    
+
     # Clear expired items cache
     if 'expired_items' in st.session_state:
         del st.session_state.expired_items
     if 'expiring_warnings' in st.session_state:
         del st.session_state.expiring_warnings
+
 
 def load_data():
     """Load all data from MongoDB"""
@@ -48,13 +52,13 @@ def load_data():
             st.session_state.storage_units = storage_data
         else:
             st.session_state.storage_units = {}
-            
+
         history_data = load_history_data()
         if history_data:
             st.session_state.item_history = history_data
         else:
             st.session_state.item_history = []
-            
+
         reminders_data = load_reminders_data()
         if reminders_data:
             st.session_state.expiration_reminders = reminders_data
@@ -67,18 +71,19 @@ def load_data():
         st.session_state.expiration_reminders = {}
         st.session_state.item_history = []
 
+
 # ===== AUTHENTICATION AND INITIALIZATION =====
 # First check if user is logged in
 if not is_logged_in():
     login()
-    # st.stop()
+    st.stop()
 
 # After successful login, initialize MongoDB and load data
 if is_logged_in():
     if 'mongodb_initialized' not in st.session_state:
         init_connection()
         st.session_state.mongodb_initialized = True
-    
+
     if 'storage_units' not in st.session_state:
         load_data()
 
@@ -131,27 +136,27 @@ if 'item_history' not in st.session_state:
 # Lista över olika typer av förvaringsenheter
 # Varje typ har en beskrivande emoji och ett namn
 STORAGE_TYPES = [
-    "🧊 Kylskåp",    # För kylda varor
-    "❄️ Frys",       # För frysta varor
-    "🏪 Skafferi",   # För torrvaror
-    "🗄️ Skåp",      # För övriga förvaringsplatser
-    "📦 Övrigt"      # För specialfall
+    "🧊 Kylskåp",  # För kylda varor
+    "❄️ Frys",  # För frysta varor
+    "🏪 Skafferi",  # För torrvaror
+    "🗄️ Skåp",  # För övriga förvaringsplatser
+    "📦 Övrigt"  # För specialfall
 ]
 
 # Lista över olika matkategorier
 # Hjälper användaren att organisera och kategorisera sina varor
 # Emojis gör det lättare att snabbt identifiera olika kategorier
 FOOD_CATEGORIES = [
-    "🥬 Frukt & Grönt",      # Färska grönsaker och frukt
-    "🥩 Kött & Fisk",        # Kött, fisk och skaldjur
-    "🥛 Mejeri",             # Mjölkprodukter
-    "🥤 Drycker",            # Alla typer av drycker
-    "🧂 Kryddor & Såser",    # Kryddor, såser och smaksättare
-    "🍱 Matrester",          # Tillagad mat och rester
-    "🍿 Snacks",             # Snacks och tilltugg
-    "🍝 Spannmål & Pasta",   # Pasta, ris, bröd etc.
-    "🧊 Frysta varor",       # Färdigfrysta produkter
-    "📦 Övrigt"              # Övrigt som inte passar i andra kategorier
+    "🥬 Frukt & Grönt",  # Färska grönsaker och frukt
+    "🥩 Kött & Fisk",  # Kött, fisk och skaldjur
+    "🥛 Mejeri",  # Mjölkprodukter
+    "🥤 Drycker",  # Alla typer av drycker
+    "🧂 Kryddor & Såser",  # Kryddor, såser och smaksättare
+    "🍱 Matrester",  # Tillagad mat och rester
+    "🍿 Snacks",  # Snacks och tilltugg
+    "🍝 Spannmål & Pasta",  # Pasta, ris, bröd etc.
+    "🧊 Frysta varor",  # Färdigfrysta produkter
+    "📦 Övrigt"  # Övrigt som inte passar i andra kategorier
 ]
 
 
@@ -172,11 +177,12 @@ def strip_emoji(text):
     return ' '.join(text.split()[1:]) if text.split() else text
 
 
-def add_to_history(action, item_name, category, quantity, storage_unit, expired=False, exp_date=None, is_example=False, timestamp=None):
+def add_to_history(action, item_name, category, quantity, storage_unit, expired=False, exp_date=None, is_example=False,
+                   timestamp=None):
     """Lägg till en händelse i historiken"""
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # Create history entry
     history_entry = {
         'timestamp': timestamp,
@@ -190,7 +196,7 @@ def add_to_history(action, item_name, category, quantity, storage_unit, expired=
         'is_example': is_example,
         'username': st.session_state.get('username', 'Okänd')
     }
-    
+
     st.session_state.item_history.append(history_entry)
     save_data()
 
@@ -199,8 +205,8 @@ def add_to_history(action, item_name, category, quantity, storage_unit, expired=
     if config and not is_example:  # Don't send notifications for example data
         preferences = config['email']['notifications'].get('preferences', {})
         recipient = config['email']['notifications'].get('recipient')
-        
-        if ((action == 'added' and preferences.get('notify_added_items')) or 
+
+        if ((action == 'added' and preferences.get('notify_added_items')) or
             (action == 'removed' and preferences.get('notify_removed_items'))) and recipient:
             send_immediate_notification(action, history_entry, recipient)
 
@@ -209,7 +215,7 @@ def check_expiring_items():
     """Kontrollera varor som närmar sig utgångsdatum och utgångna varor"""
     # Always start with fresh lists
     expiration_warnings = []  # Lista för varor som snart går ut
-    expired_items = []        # Lista för varor som redan har gått ut
+    expired_items = []  # Lista för varor som redan har gått ut
     current_date = datetime.now().date()
 
     # Only check if there are storage units and they have contents
@@ -218,7 +224,7 @@ def check_expiring_items():
         for storage_name, storage_unit in st.session_state.storage_units.items():
             if not storage_unit.get('contents'):  # Skip if no contents
                 continue
-                
+
             for item_name, item_details in storage_unit['contents'].items():
                 if 'expiration_date' in item_details:
                     try:
@@ -259,54 +265,54 @@ def populate_example_data():
         # Ta bort eventuella siffror och mellanslag från slutet av namnet
         base_name = unit_name.rstrip('0123456789 ')
         existing_units.add(base_name)
-    
+
     # Standardenheter som kan läggas till
     base_units = {
-        "Kökskylskåp": "🧊 Kylskåp",     # För vardagliga kylvaror
-        "Köllarfrys": "❄️ Frys",         # För långtidsförvaring
-        "Skafferi": "🏪 Skafferi",       # För torrvaror
-        "Kryddskåp": "🗄️ Skåp"          # För kryddor och smaksättare
+        "Kökskylskåp": "🧊 Kylskåp",  # För vardagliga kylvaror
+        "Köllarfrys": "❄️ Frys",  # För långtidsförvaring
+        "Skafferi": "🏪 Skafferi",  # För torrvaror
+        "Kryddskåp": "🗄️ Skåp"  # För kryddor och smaksättare
     }
-    
+
     # Filtrera ut enheter som redan finns
     example_units = {}
     for name, type_ in base_units.items():
         if name not in existing_units:
             example_units[name] = type_
-    
+
     if not example_units:
         st.warning("Alla standardenheter finns redan!")
         return
-    
+
     # Lista över exempelvaror med tillhörande kategorier
     example_items = {
-        "Mjölk": "🥛 Mejeri",            # Grundläggande mejeriprodukt
-        "Ägg": "🥛 Mejeri",              # Protein och basvara
-        "Ost": "🧀 Mejeri",              # Långhållbar mejeriprodukt
-        "Köttfärs": "🥩 Kött & Fisk",    # Vanlig proteinkälla
-        "Lax": "🥩 Kött & Fisk",         # Omega-3 rik fisk
-        "Kyckling": "🥩 Kött & Fisk",    # Mager proteinkälla
-        "Äpplen": "🥬 Frukt & Grönt",    # Hållbar frukt
-        "Tomater": "🥬 Frukt & Grönt",   # Färsk grönsak
-        "Sallad": "🥬 Frukt & Grönt",    # Kort hållbarhet
-        "Bröd": "🍝 Spannmål & Pasta",   # F��rskt bröd
+        "Mjölk": "🥛 Mejeri",  # Grundläggande mejeriprodukt
+        "Ägg": "🥛 Mejeri",  # Protein och basvara
+        "Ost": "🧀 Mejeri",  # Långhållbar mejeriprodukt
+        "Köttfärs": "🥩 Kött & Fisk",  # Vanlig proteinkälla
+        "Lax": "🥩 Kött & Fisk",  # Omega-3 rik fisk
+        "Kyckling": "🥩 Kött & Fisk",  # Mager proteinkälla
+        "Äpplen": "🥬 Frukt & Grönt",  # Hållbar frukt
+        "Tomater": "🥬 Frukt & Grönt",  # Färsk grönsak
+        "Sallad": "🥬 Frukt & Grönt",  # Kort hållbarhet
+        "Bröd": "🍝 Spannmål & Pasta",  # Färskt bröd
         "Pasta": "🍝 Spannmål & Pasta",  # Torr pasta
-        "Ris": "🍝 Spannmål & Pasta",    # Basmat
-        "Juice": "🥤 Drycker",           # Färskpressad
-        "Läsk": "🥤 Drycker",            # Lång hållbarhet
-        "Ketchup": "🧂 Kryddor & Såser", # Öppnad flaska
-        "Senap": "🧂 Kryddor & Såser",   # Kryddsäs
-        "Glass": "🧊 Frysta varor",      # Dessert
-        "Frysta ärtor": "🧊 Frysta varor", # Grönsaker
-        "Chips": "🍿 Snacks",            # Tilltugg
-        "Nötter": "🍿 Snacks",           # Proteinrikt snacks
-        "Lasagne": "🍱 Matrester"        # Matlåda
+        "Ris": "🍝 Spannmål & Pasta",  # Basmat
+        "Juice": "🥤 Drycker",  # Färskpressad
+        "Läsk": "🥤 Drycker",  # Lång hållbarhet
+        "Ketchup": "🧂 Kryddor & Såser",  # Öppnad flaska
+        "Senap": "🧂 Kryddor & Såser",  # Kryddsäs
+        "Glass": "🧊 Frysta varor",  # Dessert
+        "Frysta ärtor": "🧊 Frysta varor",  # Grönsaker
+        "Chips": "🍿 Snacks",  # Tilltugg
+        "Nötter": "🍿 Snacks",  # Proteinrikt snacks
+        "Lasagne": "🍱 Matrester"  # Matlåda
     }
-    
+
     # Generate a range of dates for the past 30 days
     current_date = datetime.now()
     past_dates = [
-        (current_date - timedelta(days=x)).strftime("%Y-%m-%d %H:%M:%S") 
+        (current_date - timedelta(days=x)).strftime("%Y-%m-%d %H:%M:%S")
         for x in range(30)
     ]
 
@@ -317,22 +323,22 @@ def populate_example_data():
             "contents": {},
             "is_example": True
         }
-        
+
         # Lägg till 3-8 slumpmässiga varor i varje enhet
         for _ in range(random.randint(3, 8)):
             item_name = random.choice(list(example_items.keys()))
             category = example_items[item_name]
-            
+
             # Generate random dates within the last 30 days
             add_timestamp = random.choice(past_dates)
             add_date = datetime.strptime(add_timestamp, "%Y-%m-%d %H:%M:%S")
-            
+
             # 30% chans att varan är utgången
             if random.random() < 0.3:
                 exp_date = add_date.date() + timedelta(days=random.randint(3, 10))  # Short expiry
             else:
                 exp_date = add_date.date() + timedelta(days=random.randint(7, 30))  # Longer expiry
-            
+
             # Lägg till i förvaringsenheten
             st.session_state.storage_units[unit_name]['contents'][item_name] = {
                 "quantity": random.randint(1, 5),
@@ -340,42 +346,42 @@ def populate_example_data():
                 "date_added": add_date.strftime("%Y-%m-%d"),
                 "expiration_date": exp_date.strftime("%Y-%m-%d")
             }
-            
+
             # Lägg till i historiken med varierande tidsstämplar
-            add_to_history('added', item_name, category, random.randint(1, 5), unit_name, 
-                          expired=False, exp_date=exp_date.strftime("%Y-%m-%d"), 
-                          is_example=True, timestamp=add_timestamp)
-            
+            add_to_history('added', item_name, category, random.randint(1, 5), unit_name,
+                           expired=False, exp_date=exp_date.strftime("%Y-%m-%d"),
+                           is_example=True, timestamp=add_timestamp)
+
             # Om varan är utgången, lägg till en "removed" händelse
             if exp_date < datetime.now().date():
-                remove_timestamp = (datetime.strptime(add_timestamp, "%Y-%m-%d %H:%M:%S") + 
-                                  timedelta(days=random.randint(1, 5))).strftime("%Y-%m-%d %H:%M:%S")
-                add_to_history('removed', item_name, category, random.randint(1, 5), unit_name, 
-                              expired=True, exp_date=exp_date.strftime("%Y-%m-%d"), 
-                              is_example=True, timestamp=remove_timestamp)
+                remove_timestamp = (datetime.strptime(add_timestamp, "%Y-%m-%d %H:%M:%S") +
+                                    timedelta(days=random.randint(1, 5))).strftime("%Y-%m-%d %H:%M:%S")
+                add_to_history('removed', item_name, category, random.randint(1, 5), unit_name,
+                               expired=True, exp_date=exp_date.strftime("%Y-%m-%d"),
+                               is_example=True, timestamp=remove_timestamp)
 
     # Lägg till ytterligare historik för utgångna varor
     for _ in range(20):  # Skapa 20 historiska händelser
         item_name = random.choice(list(example_items.keys()))
         category = example_items[item_name]
         unit_name = random.choice(list(example_units.keys()))
-        
+
         # Skapa datum för tillägg med varierande tidsstämplar
         add_timestamp = random.choice(past_dates)
         add_date = datetime.strptime(add_timestamp, "%Y-%m-%d %H:%M:%S")
         exp_date = add_date.date() + timedelta(days=random.randint(5, 15))
         remove_date = exp_date + timedelta(days=random.randint(1, 5))
-        
+
         # Lägg till händelsen när varan lades till
-        add_to_history('added', item_name, category, random.randint(1, 5), unit_name, 
-                      expired=False, exp_date=exp_date.strftime("%Y-%m-%d"), 
-                      is_example=True, timestamp=add_timestamp)
-        
+        add_to_history('added', item_name, category, random.randint(1, 5), unit_name,
+                       expired=False, exp_date=exp_date.strftime("%Y-%m-%d"),
+                       is_example=True, timestamp=add_timestamp)
+
         # Lägg till händelsen när varan togs bort
         remove_timestamp = remove_date.strftime("%Y-%m-%d %H:%M:%S")
-        add_to_history('removed', item_name, category, random.randint(1, 5), unit_name, 
-                      expired=True, exp_date=exp_date.strftime("%Y-%m-%d"), 
-                      is_example=True, timestamp=remove_timestamp)
+        add_to_history('removed', item_name, category, random.randint(1, 5), unit_name,
+                       expired=True, exp_date=exp_date.strftime("%Y-%m-%d"),
+                       is_example=True, timestamp=remove_timestamp)
 
     # Spara all data
     save_data()
@@ -454,6 +460,7 @@ def check_auth():
         login()
         st.stop()  # Stoppa körningen här om inte inloggad
 
+
 # At the top of main.py, after imports
 
 # Initialize MongoDB connection first
@@ -461,7 +468,7 @@ if 'mongodb_initialized' not in st.session_state:
     init_connection()
     st.session_state.mongodb_initialized = True
 
-# Check authentication before loading any data or showing content
+# Single authentication check
 if not is_logged_in():
     login()
     st.stop()
@@ -479,10 +486,10 @@ with st.sidebar:
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
-    
+
     # Varningar för utgångsdatum (synliga för alla inloggade)
     expired_items, expiring_warnings = check_expiring_items()
-    
+
     # Visa alla varningar i en huvudexpander
     if expired_items or expiring_warnings:
         st.markdown("---")
@@ -491,8 +498,8 @@ with st.sidebar:
             if expired_items:
                 for item in expired_items:
                     # Get the category emoji from the item's category
-                    category_emoji = next((cat.split()[0] for cat in FOOD_CATEGORIES 
-                                        if strip_emoji(cat) == strip_emoji(item['category'])), '📦')
+                    category_emoji = next((cat.split()[0] for cat in FOOD_CATEGORIES
+                                           if strip_emoji(cat) == strip_emoji(item['category'])), '📦')
                     st.error(
                         f"**{category_emoji} {item['item']}** är utgången sedan {item['days']} dagar!\n\n"
                         f"- Finns i: {item['unit']}\n"
@@ -506,8 +513,8 @@ with st.sidebar:
             if expiring_warnings:
                 for item in expiring_warnings:
                     # Get the category emoji from the item's category
-                    category_emoji = next((cat.split()[0] for cat in FOOD_CATEGORIES 
-                                        if strip_emoji(cat) == strip_emoji(item['category'])), '📦')
+                    category_emoji = next((cat.split()[0] for cat in FOOD_CATEGORIES
+                                           if strip_emoji(cat) == strip_emoji(item['category'])), '📦')
                     st.warning(
                         f"**{category_emoji} {item['item']}** går ut om {item['days']} dagar!\n\n"
                         f"- Finns i: {item['unit']}\n"
@@ -515,14 +522,14 @@ with st.sidebar:
                     )
             else:
                 st.info("Inga varor på väg att gå ut!")
-    
+
     # Endast administratörer kan lägga till förvaringsenheter
     if is_admin():
         st.markdown("---")
         st.header("Lägg till ny förvaringsenhet")
         unit_name = st.text_input("Namn (t.ex. Kökskylskåp)", key="sidebar_unit_name")
         unit_type = st.selectbox("Typ", STORAGE_TYPES, key="sidebar_unit_type")
-        
+
         if st.button("Lägg till förvaringsenhet", key="sidebar_add_unit"):
             if unit_name:
                 if unit_name not in st.session_state.storage_units:
@@ -594,7 +601,8 @@ if is_admin() and len(selected_tab) > 2:
             # Rensa all data (med extra varning)
             st.subheader("Rensa all data")
             clear_all = st.button("Rensa ALL data", key="admin_clear_all", type="secondary")
-            confirm = st.checkbox("Jag förstår att detta kommer radera ALL data permanent", key="admin_confirm_clear_all")
+            confirm = st.checkbox("Jag förstår att detta kommer radera ALL data permanent",
+                                  key="admin_confirm_clear_all")
 
             if clear_all and confirm:
                 # Rensa all data
@@ -609,10 +617,10 @@ if is_admin() and len(selected_tab) > 2:
                 st.error("Du måste bekräfta att du vill radera all data genom att markera checkboxen")
 
             st.markdown("---")
-        
+
         # Användarhantering
         with st.expander("👥 Användarhantering"):
-        
+
             # Visa befintliga användare
             users = list_users()
             if users:
@@ -639,7 +647,7 @@ if is_admin() and len(selected_tab) > 2:
                         st.error(message)
                 else:
                     st.error("Både användarnamn och lösenord krävs")
-            
+
             # In the admin panel, under user management
             st.subheader("Ändra lösenord")
             user_to_change = st.selectbox(
@@ -673,7 +681,8 @@ if is_admin() and len(selected_tab) > 2:
             )
 
             # Move checkbox before the button
-            confirm_delete = st.checkbox("Jag är säker på att jag vill ta bort denna användare", key="confirm_delete_user")
+            confirm_delete = st.checkbox("Jag är säker på att jag vill ta bort denna användare",
+                                         key="confirm_delete_user")
 
             if st.button("Ta bort användare"):
                 if user_to_delete:
@@ -697,18 +706,18 @@ if is_admin() and len(selected_tab) > 2:
                 col1, col2 = st.columns(2)
                 with col1:
                     st.success(f"Email-notifieringar är aktiva för: {config['email']['notifications']['recipient']}")
-                    
+
                     # Always show last sent info
                     last_sent, next_send = get_email_schedule_info()
                     schedule = config['email']['notifications'].get('schedule', {
                         'weekdays': list(range(7)),
                         'time': "08:00"
                     })
-                    
+
                     if last_sent:
                         current_time = datetime.now()
                         days_ago = (current_time - last_sent).days
-                        
+
                         if days_ago == 0:
                             if last_sent.date() == current_time.date():
                                 sent_text = f"idag kl {last_sent.strftime('%H:%M')}"
@@ -716,9 +725,9 @@ if is_admin() and len(selected_tab) > 2:
                                 sent_text = f"igår kl {last_sent.strftime('%H:%M')}"
                         else:
                             sent_text = f"för {days_ago} dagar sedan (kl {last_sent.strftime('%H:%M')})"
-                        
+
                         st.info(f"Senaste email skickades {sent_text}")
-                        
+
                         if next_send:
                             days_until = (next_send.date() - current_time.date()).days
                             if days_until == 0:
@@ -727,9 +736,10 @@ if is_admin() and len(selected_tab) > 2:
                                 next_text = f"imorgon kl {next_send.strftime('%H:%M')}"
                             else:
                                 next_text = f"på {next_send.strftime('%A').lower()} kl {next_send.strftime('%H:%M')}"
-                            
+
                             st.info(f"Nästa email skickas {next_text}")
-                            st.info(f"Schemalagt att skickas {format_weekdays(schedule['weekdays'])} kl {schedule['time']}")
+                            st.info(
+                                f"Schemalagt att skickas {format_weekdays(schedule['weekdays'])} kl {schedule['time']}")
                     else:
                         st.info("Inget email har skickats än")
                         st.info("Nästa email skickas vid nästa kontroll")
@@ -813,33 +823,38 @@ if is_admin() and len(selected_tab) > 2:
 
                 with col1:
                     notify_expired = st.checkbox(
-                        "Utgångna varor", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_expired', True),
+                        "Utgångna varor",
+                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get(
+                            'notify_expired', True),
                         help="Skicka notifieringar om varor som har gått ut"
                     )
-                    
+
                     notify_expiring_soon = st.checkbox(
-                        "Varor som snart går ut", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_expiring_soon', True),
+                        "Varor som snart går ut",
+                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get(
+                            'notify_expiring_soon', True),
                         help="Skicka notifieringar om varor som snart går ut"
                     )
-                    
+
                     notify_low_quantity = st.checkbox(
-                        "Lågt antal", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_low_quantity', False),
+                        "Lågt antal",
+                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get(
+                            'notify_low_quantity', False),
                         help="Skicka varning när antalet av en vara är lågt"
                     )
 
                 with col2:
                     notify_removed_items = st.checkbox(
-                        "Borttagna varor", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_removed_items', False),
+                        "Borttagna varor",
+                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get(
+                            'notify_removed_items', False),
                         help="Skicka notifieringar när varor tas bort"
                     )
-                    
+
                     notify_added_items = st.checkbox(
-                        "Tillagda varor", 
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('notify_added_items', False),
+                        "Tillagda varor",
+                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get(
+                            'notify_added_items', False),
                         help="Skicka notifieringar när nya varor läggs till"
                     )
 
@@ -849,7 +864,8 @@ if is_admin() and len(selected_tab) > 2:
                         "Antal dagar innan utgång för varning",
                         min_value=1,
                         max_value=30,
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('expiring_soon_days', 7),
+                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get(
+                            'expiring_soon_days', 7),
                         help="Skicka varning när vara går ut inom detta antal dagar"
                     )
                 else:
@@ -860,7 +876,8 @@ if is_admin() and len(selected_tab) > 2:
                         "Gräns för lågt antal",
                         min_value=1,
                         max_value=10,
-                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get('low_quantity_threshold', 2),
+                        value=config.get('email', {}).get('notifications', {}).get('preferences', {}).get(
+                            'low_quantity_threshold', 2),
                         help="Skicka varning när antalet är lägre än detta"
                     )
                 else:
@@ -914,14 +931,14 @@ if is_admin() and len(selected_tab) > 2:
                     expired_items, expiring_warnings = check_expiring_items()
                     if expired_items or expiring_warnings:
                         all_items = expired_items + expiring_warnings
-                        
+
                         # Create a temporary copy of the config for immediate sending
                         temp_config = config.copy()
                         temp_config['email']['notifications']['last_sent'] = None  # Reset last sent time
-                        
+
                         with open('email_config.yml', 'w', encoding='utf-8') as file:
                             yaml.dump(temp_config, file)
-                        
+
                         # Try to send notification
                         try:
                             if send_expiration_notification(all_items, config['email']['notifications']['recipient']):
@@ -930,7 +947,7 @@ if is_admin() and len(selected_tab) > 2:
                                 st.error("Kunde inte skicka notifiering")
                         except Exception as e:
                             st.error(f"Fel vid skickande av notifiering: {str(e)}")
-                            
+
                         # Restore original config
                         with open('email_config.yml', 'w', encoding='utf-8') as file:
                             yaml.dump(config, file)
@@ -944,27 +961,27 @@ if is_admin() and len(selected_tab) > 2:
 # ===== FÖRVARINGSFLIK =====
 with selected_tab[0]:
     st.title("📦 Förvarade Varor")
-    
+
     # Check if there are any storage units
     if not st.session_state.storage_units:
         st.warning("Inga förvaringsenheter finns tillgängliga. Be en administratör att lägga till förvaringsenheter.")
         st.stop()  # Stop execution here since there's nothing else to show
-    
+
     # Väljare för förvaringsenhet
     selected_unit = st.selectbox(
         "Välj förvaringsenhet",
         options=list(st.session_state.storage_units.keys()),
         key="unit_selector_1"
     )
-    
+
     # Visa innehåll och kontroller för vald enhet
     if selected_unit:
         unit = st.session_state.storage_units[selected_unit]
-        
+
         # Sektion för att lägga till nya varor
         with st.expander("Lägg till ny vara"):
             st.subheader(f"{selected_unit} ({strip_emoji(unit['type'])})")
-            
+
             # Val mellan att skriva in ny vara eller välja från tidigare
             input_method = st.radio(
                 "Välj inmatningsmetod",
@@ -1055,24 +1072,26 @@ with selected_tab[0]:
                                 if remove_quantity == details['quantity']:
                                     # Remove entire item
                                     add_to_history(
-                                        'removed', 
-                                        item, 
-                                        details['category'], 
-                                        remove_quantity, 
+                                        'removed',
+                                        item,
+                                        details['category'],
+                                        remove_quantity,
                                         selected_unit,
-                                        expired=datetime.strptime(details['expiration_date'], "%Y-%m-%d").date() < datetime.now().date(),
+                                        expired=datetime.strptime(details['expiration_date'],
+                                                                  "%Y-%m-%d").date() < datetime.now().date(),
                                         exp_date=details['expiration_date']
                                     )
                                     del unit['contents'][item]
                                 else:
                                     # Update quantity
                                     add_to_history(
-                                        'removed', 
-                                        item, 
-                                        details['category'], 
-                                        remove_quantity, 
+                                        'removed',
+                                        item,
+                                        details['category'],
+                                        remove_quantity,
                                         selected_unit,
-                                        expired=datetime.strptime(details['expiration_date'], "%Y-%m-%d").date() < datetime.now().date(),
+                                        expired=datetime.strptime(details['expiration_date'],
+                                                                  "%Y-%m-%d").date() < datetime.now().date(),
                                         exp_date=details['expiration_date']
                                     )
                                     unit['contents'][item]['quantity'] -= remove_quantity
@@ -1092,16 +1111,16 @@ with selected_tab[0]:
                 try:
                     # Remove the storage unit
                     del st.session_state.storage_units[selected_unit]
-                    
+
                     # Clear expiration reminders for this unit
                     st.session_state.expiration_reminders = {
                         k: v for k, v in st.session_state.expiration_reminders.items()
                         if not k.startswith(f"{selected_unit}_")
                     }
-                    
+
                     # Save changes to database
                     save_data()
-                    
+
                     # Clear cache and rerun
                     st.cache_data.clear()
                     st.rerun()
@@ -1111,7 +1130,7 @@ with selected_tab[0]:
 # ===== STATISTIKFLIK =====
 with selected_tab[1]:
     st.title("📊 Statistik och Analys")
-    
+
     if not st.session_state.item_history:
         st.info("Ingen historik tillgänglig än. Börja med att lägga till och ta bort varor!")
     else:
@@ -1120,7 +1139,7 @@ with selected_tab[1]:
             "Välj tidsperiod",
             ["Senaste veckan", "Senaste månaden", "Senaste året", "Allt"]
         )
-        
+
         # Generera statistik endast när användaren klickar på knappen
         # Detta sparar resurser och gör appen snabbare
         if st.button("Visa statistik", type="primary"):
@@ -1131,11 +1150,11 @@ with selected_tab[1]:
                     st.session_state.storage_units,
                     time_period if time_period != "Allt" else None
                 )
-                
+
                 # ===== AKTIVITETSSTATISTIK =====
                 with st.expander("Aktivitetsstatistik"):
                     st.write("### Aktivitetsstatistik")
-                    
+
                     # Cirkeldiagram över mest aktiva kategorier
                     st.subheader("Mest aktiva kategorier")
                     category_activity = df['category'].value_counts()
@@ -1182,9 +1201,9 @@ with selected_tab[1]:
                     # Stapeldiagram över mest använda varor
                     st.subheader("Mest använda varor")
                     removed_items = df[
-                        (df['action'] == 'removed') & 
+                        (df['action'] == 'removed') &
                         (df['expired'] == False)
-                    ]['item'].value_counts().head(10)
+                        ]['item'].value_counts().head(10)
 
                     if not removed_items.empty:
                         fig4 = px.bar(
@@ -1199,7 +1218,7 @@ with selected_tab[1]:
                         st.plotly_chart(fig4, use_container_width=True)
                     else:
                         st.info("Ingen data om använda varor tillgänglig")
-                
+
                 # ===== ÖVRIG STATISTIK =====
                 with st.expander("Ytterligare statistik"):
                     st.write("### Ytterligare statistik")
@@ -1216,9 +1235,9 @@ with selected_tab[1]:
                     with col4:
                         # Count only non-expired removals
                         used_items = len(df[
-                            (df['action'] == 'removed') & 
-                            (df['expired'] == False)
-                        ])
+                                             (df['action'] == 'removed') &
+                                             (df['expired'] == False)
+                                             ])
                         st.metric(
                             "Använda varor (ej utgångna)",
                             used_items
@@ -1227,9 +1246,9 @@ with selected_tab[1]:
                     with col5:
                         # Count expired removals separately
                         expired_removals = len(df[
-                            (df['action'] == 'removed') & 
-                            (df['expired'] == True)
-                        ])
+                                                   (df['action'] == 'removed') &
+                                                   (df['expired'] == True)
+                                                   ])
                         st.metric(
                             "Utgångna varor",
                             expired_removals
@@ -1243,7 +1262,8 @@ with selected_tab[1]:
                     if not expired_df.empty:
                         # Stapeldiagram över varor nära utgång
                         st.subheader("Varor nära utgångsdatum")
-                        near_expiry = expired_df[expired_df['days_until_expiry'] > 0].sort_values('days_until_expiry').head(10)
+                        near_expiry = expired_df[expired_df['days_until_expiry'] > 0].sort_values(
+                            'days_until_expiry').head(10)
                         if not near_expiry.empty:
                             fig5 = px.bar(
                                 data_frame=near_expiry,
@@ -1284,7 +1304,7 @@ with selected_tab[1]:
                         expired_history = df[
                             (df['action'] == 'removed') &
                             (df['expired'] == True)
-                        ]['item'].value_counts().head(10)
+                            ]['item'].value_counts().head(10)
 
                         if not expired_history.empty:
                             st.subheader("Mest utgångna varor")
@@ -1312,8 +1332,8 @@ with selected_tab[1]:
 
                         with col9:
                             near_expiry_count = len(expired_df[
-                                (expired_df['days_until_expiry'] >= 0) &
-                                (expired_df['days_until_expiry'] <= 7)])
+                                                        (expired_df['days_until_expiry'] >= 0) &
+                                                        (expired_df['days_until_expiry'] <= 7)])
                             st.metric(
                                 "Varor som går ut inom 7 dagar",
                                 near_expiry_count
@@ -1334,4 +1354,3 @@ with selected_tab[1]:
                                 )
                     else:
                         st.info("Ingen utgångsdatumdata tillgänglig än.")
-
