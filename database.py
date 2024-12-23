@@ -67,7 +67,8 @@ def load_storage_data():
                 # Remove MongoDB's _id field from all documents
                 for doc in data:
                     doc.pop('_id', None)
-                return data[0]  # Return first document
+                # Return the actual storage units data, not the whole document
+                return data[0] if isinstance(data[0], dict) else {}
             return {}
         except Exception as e:
             st.error(f"Error loading from database: {str(e)}")
@@ -80,14 +81,21 @@ def save_storage_data(data):
     db = get_database()
     if db is not None:
         try:
+            # Ensure we're saving a dictionary
+            if not isinstance(data, dict):
+                st.error("Invalid data format")
+                return False
+                
             json_data = json.loads(json.dumps(data, default=str))
-            db.storage_units.replace_one({}, json_data, upsert=True)
+            # Clear existing data and insert new
+            db.storage_units.delete_many({})
+            db.storage_units.insert_one(json_data)
+            
             # Set flag to clear cache on next load
             st.session_state.clear_cache = True
             return True
         except Exception as e:
             st.error(f"Error saving storage data: {str(e)}")
-            # Fallback to local storage
             try:
                 with open('storage_data.json', 'w', encoding='utf-8') as f:
                     json.dump(data, f, indent=4, ensure_ascii=False)
@@ -95,7 +103,6 @@ def save_storage_data(data):
             except Exception as e:
                 st.error(f"Error saving to local storage: {str(e)}")
     else:
-        # Save locally if no database connection
         try:
             with open('storage_data.json', 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
