@@ -85,7 +85,7 @@ if is_logged_in():
 # ===== SIDEBAR =====
 with st.sidebar:
     # Logout button
-    if st.button("Logga ut", key="logout_button"):
+    if st.button("Logga ut", key="main_logout_button"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
@@ -470,7 +470,7 @@ check_auth()
 
 # Visa utloggningsknapp i sidofältet
 with st.sidebar:
-    if st.button("Logga ut", key="logout_button"):
+    if st.button("Logga ut", key="main_logout_button"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
@@ -497,7 +497,7 @@ with st.sidebar:
                 st.info("Inga utgångna varor!")
 
         # Visa varor som snart går ut i en separat expander
-        with st.expander("### �� Varor som snart går ut"):
+        with st.expander("### Varor som snart går ut"):
             if expiring_warnings:
                 for item in expiring_warnings:
                     # Get the category emoji from the item's category
@@ -515,10 +515,10 @@ with st.sidebar:
     if is_admin():
         st.markdown("---")
         st.header("Lägg till ny förvaringsenhet")
-        unit_name = st.text_input("Namn (t.ex. Kökskylskåp)")
-        unit_type = st.selectbox("Typ", STORAGE_TYPES)
+        unit_name = st.text_input("Namn (t.ex. Kökskylskåp)", key="sidebar_unit_name")
+        unit_type = st.selectbox("Typ", STORAGE_TYPES, key="sidebar_unit_type")
         
-        if st.button("Lägg till förvaringsenhet", key="add_unit"):
+        if st.button("Lägg till förvaringsenhet", key="sidebar_add_unit"):
             if unit_name:
                 if unit_name not in st.session_state.storage_units:
                     st.session_state.storage_units[unit_name] = {
@@ -547,15 +547,15 @@ if is_admin() and len(selected_tab) > 2:
         st.title("⚙️ Administratörsinställningar")
         st.warning("🚨Varning🚨: Dessa funktioner kan skapa instabilitet och påverka all lagrad data!")
 
-        with st.expander("️ Inställningar för data"):
+        with st.expander("⚙️ Inställningar för data"):
             col1, col2 = st.columns(2)
 
             with col1:
                 st.subheader("Hantera exempeldata")
-                if st.button("Lägg till exempel-data", type="secondary"):
+                if st.button("Lägg till exempel-data", key="admin_add_example", type="secondary"):
                     populate_example_data()
 
-                if st.button("Rensa endast exempeldata", type="secondary"):
+                if st.button("Rensa endast exempeldata", key="admin_clear_example", type="secondary"):
                     # Ta bort förvaringsenheter markerade som exempel
                     st.session_state.storage_units = {
                         k: v for k, v in st.session_state.storage_units.items()
@@ -571,25 +571,25 @@ if is_admin() and len(selected_tab) > 2:
 
             with col2:
                 st.subheader("Rensa specifik data")
-                if st.button("Rensa förvaringsenheter", type="secondary"):
+                if st.button("Rensa förvaringsenheter", key="admin_clear_units", type="secondary"):
                     st.session_state.storage_units = {}
                     save_data()
                     st.success("Alla förvaringsenheter har rensats!")
 
-                if st.button("Rensa påminnelser", type="secondary"):
+                if st.button("Rensa påminnelser", key="admin_clear_reminders", type="secondary"):
                     st.session_state.expiration_reminders = {}
                     save_data()
                     st.success("Alla påminnelser har rensats!")
 
-                if st.button("Rensa historik", type="secondary"):
+                if st.button("Rensa historik", key="admin_clear_history", type="secondary"):
                     st.session_state.item_history = []
                     save_data()
                     st.success("All historik har rensats!")
 
             # Rensa all data (med extra varning)
             st.subheader("Rensa all data")
-            clear_all = st.button("Rensa ALL data", type="secondary")
-            confirm = st.checkbox("Jag förstår att detta kommer radera ALL data permanent")
+            clear_all = st.button("Rensa ALL data", key="admin_clear_all", type="secondary")
+            confirm = st.checkbox("Jag förstår att detta kommer radera ALL data permanent", key="admin_confirm_clear_all")
 
             if clear_all and confirm:
                 # Rensa all data
@@ -617,15 +617,15 @@ if is_admin() and len(selected_tab) > 2:
 
             # Lägg till ny användare
             st.subheader("Lägg till ny användare")
-            new_username = st.text_input("Användarnamn", key="new_user_name")
-            new_password = st.text_input("Lösenord", type="password", key="new_user_pass")
+            new_username = st.text_input("Användarnamn", key="admin_new_username")
+            new_password = st.text_input("Lösenord", type="password", key="admin_new_password")
             new_role = st.selectbox(
                 "Roll",
                 options=['user', 'admin'],
-                key="new_user_role"
+                key="admin_new_role"
             )
 
-            if st.button("Skapa användare"):
+            if st.button("Skapa användare", key="admin_create_user"):
                 if new_username and new_password:
                     success, message = add_user(new_username, new_password, new_role)
                     if success:
@@ -640,13 +640,13 @@ if is_admin() and len(selected_tab) > 2:
             user_to_change = st.selectbox(
                 "Välj användare",
                 options=list(users.keys()),
-                key="user_to_change_pw"
+                key="admin_user_to_change"
             )
 
-            new_password = st.text_input("Nytt lösenord", type="password", key="new_password")
-            confirm_password = st.text_input("Bekräfta nytt lösenord", type="password", key="confirm_password")
+            new_password = st.text_input("Nytt lösenord", type="password", key="admin_change_password")
+            confirm_password = st.text_input("Bekräfta nytt lösenord", type="password", key="admin_confirm_password")
 
-            if st.button("Ändra lösenord"):
+            if st.button("Ändra lösenord", key="admin_change_password_button"):
                 if new_password and confirm_password:
                     if new_password == confirm_password:
                         success, message = change_password(user_to_change, new_password)
@@ -731,7 +731,7 @@ if is_admin() and len(selected_tab) > 2:
 
                 with col2:
                     # Button to reset last sent date
-                    if st.button("Återställ senaste skickad"):
+                    if st.button("Återställ senaste skickad", key="email_reset_last_sent"):
                         config['email']['notifications']['last_sent'] = None
                         with open('email_config.yml', 'w', encoding='utf-8') as file:
                             yaml.dump(config, file)
@@ -739,7 +739,7 @@ if is_admin() and len(selected_tab) > 2:
                         st.rerun()
 
                     # Test button that ignores the daily limit
-                    if st.button("Skicka test-email"):
+                    if st.button("Skicka test-email", key="email_send_test"):
                         expired_items, expiring_warnings = check_expiring_items()
                         if expired_items or expiring_warnings:
                             all_items = expired_items + expiring_warnings
@@ -889,7 +889,7 @@ if is_admin() and len(selected_tab) > 2:
                         st.error("Email-notifieringar måste vara aktiverade först")
 
                 # Existing activation button
-                if st.button("Aktivera email-notifieringar"):
+                if st.button("Aktivera email-notifieringar", key="email_activate"):
                     if email_recipient:
                         if schedule_daily_notification(email_recipient, weekdays, time_str, notification_preferences):
                             st.success("Email-notifieringar aktiverade!")
@@ -905,7 +905,7 @@ if is_admin() and len(selected_tab) > 2:
                         st.error("Ange en email-adress")
 
                 # Add button to manually send notification
-                if st.button("Skicka notifiering nu"):
+                if st.button("Skicka notifiering nu", key="email_send_now"):
                     expired_items, expiring_warnings = check_expiring_items()
                     if expired_items or expiring_warnings:
                         all_items = expired_items + expiring_warnings
@@ -1083,7 +1083,7 @@ with selected_tab[0]:
 
         # Ta bort förvaringsenhet
         if is_admin():
-            if st.button("Ta bort förvaringsenhet", type="secondary"):
+            if st.button("Ta bort förvaringsenhet", key=f"remove_unit_{selected_unit}", type="secondary"):
                 try:
                     # Remove the storage unit
                     del st.session_state.storage_units[selected_unit]
