@@ -1287,6 +1287,8 @@ if is_admin() and len(selected_tab) > 2:
                             with open('email_config.yml', 'w', encoding='utf-8') as file:
                                 yaml.dump(config, file)
                             st.success("Inställningar sparade!")
+                            time.sleep(0.5)  # Give a moment for the success message to be visible
+                            st.rerun()  # Add this line to rerun the app
                         except Exception as e:
                             st.error(f"Kunde inte spara inställningar: {str(e)}")
                     else:
