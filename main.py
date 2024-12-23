@@ -683,7 +683,7 @@ if is_admin() and len(selected_tab) > 2:
             )
 
             # Move checkbox before the button
-            confirm_delete = st.checkbox("Jag är säker på att jag vill ta bort denna anv��ndare", key="confirm_delete_user")
+            confirm_delete = st.checkbox("Jag är säker på att jag vill ta bort denna användare", key="confirm_delete_user")
 
             if st.button("Ta bort användare"):
                 if user_to_delete:
@@ -1101,7 +1101,8 @@ with selected_tab[0]:
             if st.button("Ta bort förvaringsenhet", type="secondary"):
                 del st.session_state.storage_units[selected_unit]
                 save_data()
-                st.rerun()
+                st.session_state.clear_cache = True  # Set flag to clear cache
+                st.rerun()  # Force page reload
 
 # ===== STATISTIKFLIK =====
 with selected_tab[1]:

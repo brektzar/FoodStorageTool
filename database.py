@@ -53,6 +53,11 @@ def get_database():
 @st.cache_data(ttl=600)  # Match the documentation's TTL
 def load_storage_data():
     """Load storage units data from MongoDB or locally"""
+    # Clear the cache if clear_cache flag is set
+    if st.session_state.get('clear_cache', False):
+        load_storage_data.clear()
+        st.session_state.clear_cache = False
+    
     db = get_database()
     if db is not None:
         try:
@@ -77,6 +82,8 @@ def save_storage_data(data):
         try:
             json_data = json.loads(json.dumps(data, default=str))
             db.storage_units.replace_one({}, json_data, upsert=True)
+            # Set flag to clear cache on next load
+            st.session_state.clear_cache = True
             return True
         except Exception as e:
             st.error(f"Error saving storage data: {str(e)}")
