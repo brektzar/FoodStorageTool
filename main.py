@@ -60,40 +60,30 @@ Utvecklad med:
 - JSON för datalagring
 """
 
-# ===== IMPORTERA NÖDVÄNDIGA BIBLIOTEK =====
-import streamlit as st
-import json
-from datetime import datetime, timedelta
-import os
-import plotly.express as px
-from collections import Counter
-import random
-import time
-from auth import login, logout, is_admin, is_logged_in, save_users, add_user, delete_user, list_users, change_password
-from email_handler import send_expiration_notification, schedule_daily_notification, load_email_config, get_email_schedule_info, get_next_scheduled_time, format_weekdays, send_immediate_notification
-import yaml
-from database import (save_storage_data, load_storage_data, 
-                     save_history_data, load_history_data,
-                     save_reminders_data, load_reminders_data,
-                     init_connection)
-
-# Konfigurera pandas för att hantera framtida varningar
-import pandas as pd
-pd.set_option('future.no_silent_downcasting', True)
-
-# Check authentication first
+# ===== AUTHENTICATION AND INITIALIZATION =====
+# First check if user is logged in
 if not is_logged_in():
     login()
     st.stop()
 
-# Initialize MongoDB only after successful login
-if 'mongodb_initialized' not in st.session_state:
-    init_connection()
-    st.session_state.mongodb_initialized = True
+# After successful login, initialize MongoDB and load data
+if is_logged_in():
+    if 'mongodb_initialized' not in st.session_state:
+        init_connection()
+        st.session_state.mongodb_initialized = True
+    
+    if 'storage_units' not in st.session_state:
+        load_data()
 
-# Load data if not already loaded and user is logged in
-if is_logged_in() and 'storage_units' not in st.session_state:
-    load_data()
+# ===== SIDEBAR =====
+with st.sidebar:
+    # Logout button
+    if st.button("Logga ut"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+    # Rest of the sidebar code...
 
 # ===== INITIALISERA SESSIONSTILLSTÅND =====
 # Sessionstillstånd är variabler som behåller sina värden mellan olika körningar av appen
