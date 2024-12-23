@@ -85,7 +85,7 @@ if is_logged_in():
 # ===== SIDEBAR =====
 with st.sidebar:
     # Logout button
-    if st.button("Logga ut"):
+    if st.button("Logga ut", key="logout_button"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
@@ -470,7 +470,7 @@ check_auth()
 
 # Visa utloggningsknapp i sidofältet
 with st.sidebar:
-    if st.button("Logga ut"):
+    if st.button("Logga ut", key="logout_button"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
@@ -497,7 +497,7 @@ with st.sidebar:
                 st.info("Inga utgångna varor!")
 
         # Visa varor som snart går ut i en separat expander
-        with st.expander("### ⏳ Varor som snart går ut"):
+        with st.expander("### �� Varor som snart går ut"):
             if expiring_warnings:
                 for item in expiring_warnings:
                     # Get the category emoji from the item's category
