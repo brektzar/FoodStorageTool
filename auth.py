@@ -6,6 +6,7 @@ import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
 import hashlib
+from email_handler import send_user_management_notification
 
 # Ladda användarkonfiguration från YAML-fil
 def load_users():
@@ -147,6 +148,14 @@ def add_user(username, password, role='user'):
         with open(secrets_path, 'w') as f:
             f.writelines(new_secrets)
 
+        success = True  # If we get here, user was created successfully
+        if success:
+            # Send notification about new user
+            send_user_management_notification(
+                "created", 
+                username, 
+                performed_by=st.session_state.get('username', 'Unknown')
+            )
         return True, f"Användare {username} skapades"
     except Exception as e:
         return False, f"Fel vid skapande av användare: {str(e)}"
@@ -182,6 +191,14 @@ def delete_user(username):
         with open(secrets_path, 'w') as f:
             f.writelines(new_secrets)
 
+        success = True  # If we get here, user was deleted successfully
+        if success:
+            # Send notification about deleted user
+            send_user_management_notification(
+                "deleted", 
+                username, 
+                performed_by=st.session_state.get('username', 'Unknown')
+            )
         return True, f"Användare {username} togs bort"
     except Exception as e:
         return False, f"Fel vid borttagning av användare: {str(e)}"
@@ -231,6 +248,14 @@ def change_password(username, new_password):
         with open(secrets_path, 'w') as f:
             f.writelines(new_secrets)
 
+        success = True  # If we get here, password was changed successfully
+        if success:
+            # Send notification about password change
+            send_user_management_notification(
+                "password_changed", 
+                username, 
+                performed_by=st.session_state.get('username', 'Unknown')
+            )
         return True, f"Lösenord ändrat för {username}"
     except Exception as e:
         return False, f"Fel vid ändring av lösenord: {str(e)}"
