@@ -61,14 +61,6 @@ Utvecklad med:
 """
 
 # ===== IMPORTERA NÖDVÄNDIGA BIBLIOTEK =====
-# streamlit (st) - Ett bibliotek för att skapa webbgränssnitt
-# json - Används för att spara och läsa data i ett format som är lätt att läsa
-# datetime - Hanterar datum och tid, används för utgångsdatum och tidsstämplar
-# os - Hanterar filsystem, används för att kontrollera om filer existerar
-# pandas (pd) - Kraftfullt bibliotek för dataanalys och datamanipulation
-# plotly.express (px) - Skapar interaktiva grafer och diagram
-# collections (Counter) - Hjälper till att räkna förekomster av objekt
-# random - Används för att generera slumpmässiga värden i exempeldata
 import streamlit as st
 import json
 from datetime import datetime, timedelta
@@ -82,10 +74,10 @@ from email_handler import send_expiration_notification, schedule_daily_notificat
 import yaml
 from database import (save_storage_data, load_storage_data, 
                      save_history_data, load_history_data,
-                     save_reminders_data, load_reminders_data)
+                     save_reminders_data, load_reminders_data,
+                     init_connection)
 
 # Konfigurera pandas för att hantera framtida varningar
-# Detta förhindrar varningsmeddelanden om datatypskonvertering
 import pandas as pd
 pd.set_option('future.no_silent_downcasting', True)
 
