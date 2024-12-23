@@ -289,7 +289,7 @@ def populate_example_data():
         "Äpplen": "🥬 Frukt & Grönt",    # Hållbar frukt
         "Tomater": "🥬 Frukt & Grönt",   # Färsk grönsak
         "Sallad": "🥬 Frukt & Grönt",    # Kort hållbarhet
-        "Bröd": "🍝 Spannmål & Pasta",   # Färskt bröd
+        "Bröd": "🍝 Spannmål & Pasta",   # F��rskt bröd
         "Pasta": "🍝 Spannmål & Pasta",  # Torr pasta
         "Ris": "🍝 Spannmål & Pasta",    # Basmat
         "Juice": "🥤 Drycker",           # Färskpressad
@@ -461,7 +461,12 @@ if 'mongodb_initialized' not in st.session_state:
     init_connection()
     st.session_state.mongodb_initialized = True
 
-# Load data if not already loaded
+# Check authentication before loading any data or showing content
+if not is_logged_in():
+    login()
+    st.stop()
+
+# Only load data after confirming user is logged in
 if 'storage_units' not in st.session_state:
     load_data()
 

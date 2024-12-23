@@ -57,7 +57,11 @@ def login():
     """Handle user login with cookie persistence"""
     cookie_manager = get_manager()
     
-    # Check if there's a valid login cookie
+    # First check if already logged in via session state
+    if st.session_state.get('logged_in', False):
+        return True
+    
+    # Then check for valid login cookie
     login_cookie = cookie_manager.get('login_status')
     if login_cookie:
         try:
@@ -72,43 +76,43 @@ def login():
         except (ValueError, KeyError):
             # Invalid cookie format or expired
             cookie_manager.delete('login_status')
+            st.session_state.logged_in = False
     
-    if 'logged_in' not in st.session_state:
-        st.session_state.logged_in = False
-
-    if not st.session_state.logged_in:
-        st.header("🔐 Logga in")
-        username = st.text_input("Användarnamn")
-        password = st.text_input("Lösenord", type="password")
-        remember_me = st.checkbox("Håll mig inloggad i 30 dagar")
-        
-        if st.button("Logga in"):
-            try:
-                users = load_users()
-                if username in users:
-                    input_hash = hash_password(password)
-                    stored_hash = users[username]['password']
+    # If we get here, user is not logged in
+    # Show login form
+    st.header("🔐 Logga in")
+    username = st.text_input("Användarnamn", key="login_username")
+    password = st.text_input("Lösenord", type="password", key="login_password")
+    remember_me = st.checkbox("Håll mig inloggad i 30 dagar", key="login_remember")
+    
+    if st.button("Logga in", key="login_button"):
+        try:
+            users = load_users()
+            if username in users:
+                input_hash = hash_password(password)
+                stored_hash = users[username]['password']
+                
+                if input_hash == stored_hash:
+                    st.session_state.logged_in = True
+                    st.session_state.username = username
+                    st.session_state.user_role = users[username]['role']
                     
-                    if input_hash == stored_hash:
-                        st.session_state.logged_in = True
-                        st.session_state.username = username
-                        st.session_state.user_role = users[username]['role']
-                        
-                        # Set login cookie if remember me is checked
-                        if remember_me:
-                            expiry = datetime.now() + timedelta(days=30)
-                            cookie_value = f"{username}|{expiry.isoformat()}"
-                            cookie_manager.set('login_status', cookie_value, expires_at=expiry)
-                        
-                        st.rerun()
-                    else:
-                        st.error("Felaktigt lösenord")
+                    # Set login cookie if remember me is checked
+                    if remember_me:
+                        expiry = datetime.now() + timedelta(days=30)
+                        cookie_value = f"{username}|{expiry.isoformat()}"
+                        cookie_manager.set('login_status', cookie_value, expires_at=expiry)
+                    
+                    st.rerun()
                 else:
-                    st.error("Användaren finns inte eller är inte korrekt konfigurerad")
-            except Exception as e:
-                st.error(f"Inloggningsfel: {str(e)}")
-            return False
-    return st.session_state.logged_in
+                    st.error("Felaktigt lösenord")
+            else:
+                st.error("Användaren finns inte eller är inte korrekt konfigurerad")
+        except Exception as e:
+            st.error(f"Inloggningsfel: {str(e)}")
+        return False
+    
+    return False
 
 # Logga ut användaren
 def logout():
