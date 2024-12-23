@@ -4,3 +4,4 @@ PyYAML
 plotly
 pandas
 pymongo
+dnspython==2.4.2
