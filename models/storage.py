@@ -48,3 +48,29 @@ class StorageManager:
                 save_storage_data(st.session_state.storage_units)
                 return True
         return False 
+    
+    def get_expiring_items(self):
+        """Get list of items that are expired or about to expire
+        
+        Returns:
+            list: List of dictionaries containing item details
+        """
+        expiring_items = []
+        current_date = datetime.now().date()
+        
+        for unit_name, unit in st.session_state.storage_units.items():
+            for item_name, details in unit['contents'].items():
+                exp_date = datetime.strptime(details['expiration_date'], "%Y-%m-%d").date()
+                days_remaining = (exp_date - current_date).days
+                
+                if days_remaining <= 7:  # Include items expiring within a week
+                    expiring_items.append({
+                        'item': item_name,
+                        'unit': unit_name,
+                        'days': days_remaining,
+                        'exp_date': details['expiration_date'],
+                        'category': details['category'],
+                        'quantity': details['quantity']
+                    })
+        
+        return expiring_items

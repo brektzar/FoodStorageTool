@@ -176,18 +176,86 @@ def render_current_email_status(config):
 
 def populate_example_data(storage_mgr, history_mgr):
     """Add example data to the system"""
-    # Implementation of example data population
-    pass
+    from datetime import datetime, timedelta
+    import random
+    from utils.constants import STORAGE_TYPES, FOOD_CATEGORIES
+    from utils.helpers import strip_emoji
+
+    # Example storage units with items that are about to expire
+    example_units = {
+        "Kökskylskåp": "🧊 Kylskåp",
+        "Källarfrys": "❄️ Frys",
+        "Skafferi": "🏪 Skafferi"
+    }
+
+    # Example items with varying expiration dates
+    example_items = [
+        ("Mjölk", "🥛 Mejeri", 3),
+        ("Köttfärs", "🥩 Kött & Fisk", 5),
+        ("Yoghurt", "🥛 Mejeri", 2),
+        ("Bröd", "🍝 Spannmål & Pasta", 1),
+        ("Äpplen", "🥬 Frukt & Grönt", 7),
+        ("Fiskpinnar", "🧊 Frysta varor", 180),
+    ]
+
+    # Add storage units
+    for name, type_ in example_units.items():
+        storage_mgr.add_unit(name, type_)
+
+        # Add items to each unit
+        for item_name, category, shelf_life in example_items:
+            # Randomize whether item is expired, about to expire, or fresh
+            days_offset = random.randint(-5, shelf_life)
+            exp_date = datetime.now().date() + timedelta(days=days_offset)
+            
+            # Add item with random quantity
+            quantity = random.randint(1, 5)
+            storage_mgr.add_item(name, item_name, quantity, category, exp_date)
+            
+            # Add to history
+            history_mgr.add_entry(
+                'added',
+                item_name,
+                category,
+                quantity,
+                name,
+                expired=days_offset < 0,
+                exp_date=exp_date.strftime("%Y-%m-%d"),
+                is_example=True
+            )
+
+    st.success("Exempeldata har lagts till!")
+    st.rerun()
 
 def clear_example_data(storage_mgr, history_mgr):
     """Clear only example data"""
-    # Implementation of example data clearing
-    pass
+    # Clear example items from storage units
+    for unit_name, unit in list(st.session_state.storage_units.items()):
+        # Remove example items from unit
+        for item_name in list(unit['contents'].keys()):
+            storage_mgr.remove_item(unit_name, item_name)
+            
+    # Clear example entries from history
+    history_mgr.clear_example_data()
+    
+    st.success("Exempeldata har rensats!")
+    st.rerun()
 
 def clear_all_data(storage_mgr, history_mgr):
     """Clear all data from the system"""
-    # Implementation of complete data clearing
-    pass
+    # Clear storage units
+    st.session_state.storage_units = {}
+    storage_mgr.save_storage_data(st.session_state.storage_units)
+    
+    # Clear history
+    st.session_state.item_history = []
+    history_mgr.save_history_data(st.session_state.item_history)
+    
+    # Clear reminders
+    st.session_state.expiration_reminders = {}
+    
+    st.success("All data har rensats!")
+    st.rerun()
 
 def render_email_schedule_settings(config):
     """Render email schedule settings section"""
@@ -378,7 +446,11 @@ def format_next_send(timestamp):
 def send_test_notification(config):
     """Send a test email notification"""
     try:
-        if send_expiration_notification([], config['email']['notifications']['recipient']):
+        # Get actual expiring items
+        storage_mgr = StorageManager()
+        expiring_items = storage_mgr.get_expiring_items()
+        
+        if send_expiration_notification(expiring_items, config['email']['notifications']['recipient']):
             st.success("Test-email skickat!")
         else:
             st.error("Kunde inte skicka test-email")
