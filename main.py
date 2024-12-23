@@ -523,7 +523,7 @@ with st.sidebar:
                     st.error(
                         f"**{category_emoji} {item['item']}** är utgången sedan {item['days']} dagar!\n\n"
                         f"- Finns i: {item['unit']}\n"
-                        f"- Utgångsdatum: {item['exp_date']}"
+                        f"- Utg��ngsdatum: {item['exp_date']}"
                     )
             else:
                 st.info("Inga utgångna varor!")
@@ -576,6 +576,12 @@ selected_tab = st.tabs(tabs)
 # ===== FÖRVARINGSFLIK =====
 with selected_tab[0]:
     st.title("📦 Förvarade Varor")
+    
+    # Check if there are any storage units
+    if not st.session_state.storage_units:
+        st.warning("Inga förvaringsenheter finns tillgängliga. Be en administratör att lägga till förvaringsenheter.")
+        st.info("En administratör kan lägga till förvaringsenheter via sidomenyn.")
+        st.stop()  # Stop execution here since there's nothing else to show
     
     # Väljare för förvaringsenhet
     selected_unit = st.selectbox(
