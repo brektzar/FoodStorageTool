@@ -1094,10 +1094,12 @@ if is_admin() and len(selected_tab) > 2:
         with st.expander("📧 Email Notifications"):
             # Show current email settings
             config = load_email_config()
-            if config and config['email']['notifications'].get('recipient'):
+            if config:
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.success(f"Email-notifieringar är aktiva för: {config['email']['notifications']['recipient']}")
+                    # Get recipient from secrets
+                    current_recipient = st.secrets["email"]["recipient"]
+                    st.success(f"Email-notifieringar är aktiva för: {current_recipient}")
                     
                     # Always show last sent info
                     last_sent, next_send = get_email_schedule_info()
@@ -1167,7 +1169,32 @@ if is_admin() and len(selected_tab) > 2:
 
                 # Email setup
                 st.subheader("Email-inställningar")
-                email_recipient = st.text_input("Email för notifieringar", key="email_notifications")
+                email_recipient = st.text_input(
+                    "Email för notifieringar", 
+                    value=current_recipient,
+                    key="email_notifications"
+                )
+
+                # If email recipient is changed, update secrets
+                if email_recipient != current_recipient:
+                    try:
+                        secrets_path = '.streamlit/secrets.toml'
+                        with open(secrets_path, 'r') as f:
+                            secrets_content = f.readlines()
+                        
+                        new_secrets = []
+                        for line in secrets_content:
+                            if 'recipient = ' in line:
+                                new_secrets.append(f'recipient = "{email_recipient}"\n')
+                            else:
+                                new_secrets.append(line)
+                        
+                        with open(secrets_path, 'w') as f:
+                            f.writelines(new_secrets)
+                        st.success("Email-adress uppdaterad!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Kunde inte uppdatera email-adress: {str(e)}")
 
                 # Vilka ändringar att notifiera om
                 # Checkboxes for different happenings in the app that would warrant a notification,
